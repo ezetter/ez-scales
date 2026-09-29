@@ -77,13 +77,19 @@
     return { family: 'major', mode, up: mode.steps, down: mode.steps, keyOffset: mode.keyOffset };
   }
 
-  // The 13 tonics whose key signatures have at most six sharps or flats, in keyboard order. That
-  // covers all 12 keys, and the one with six of either gets both names: F♯ and G♭ major, D♯ and
-  // E♭ minor, G♯ and A♭ Dorian, and so on.
-  function rootsFor(choice) {
+  // The 13 tonics whose key signatures have at most six sharps or flats. That covers all 12 keys,
+  // and the one with six of either gets both names: F♯ and G♭ major, D♯ and E♭ minor, G♯ and A♭
+  // Dorian, and so on. order 'alphabetical' lists them up the keyboard from C; 'fifths' goes round
+  // the circle of fifths from the key with no sharps or flats, through the sharps to six, then the
+  // flats from six back to one (C G D … F♯ G♭ D♭ … F in major).
+  function rootsFor(choice, order = 'alphabetical') {
     const { keyOffset } = scaleType(choice);
     const roots = [];
     for (let fifths = -6 - keyOffset; fifths <= 6 - keyOffset; fifths++) roots.push(noteAtFifths(fifths));
+    if (order === 'fifths') {
+      const place = root => mod(fifthsOf(root) + keyOffset, 13);
+      return roots.sort((a, b) => place(a) - place(b));
+    }
     return roots.sort((a, b) => pitchClass(a) - pitchClass(b) || fifthsOf(b) - fifthsOf(a));
   }
 

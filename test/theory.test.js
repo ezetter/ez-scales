@@ -54,6 +54,15 @@ test('roots are spelled for the chosen scale, in keyboard order', () => {
     ['C', 'C♯', 'D', 'D♯', 'E', 'E♯', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']);
 });
 
+test('roots can go round the circle of fifths from the key with no sharps or flats', () => {
+  assert.deepEqual(names(T.rootsFor({ family: 'major', mode: 'ionian' }, 'fifths')),
+    ['C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'G♭', 'D♭', 'A♭', 'E♭', 'B♭', 'F']);
+  assert.deepEqual(names(T.rootsFor({ family: 'minor', form: 'natural' }, 'fifths')),
+    ['A', 'E', 'B', 'F♯', 'C♯', 'G♯', 'D♯', 'E♭', 'B♭', 'F', 'C', 'G', 'D']);
+  assert.deepEqual(names(T.rootsFor({ family: 'major', mode: 'dorian' }, 'fifths')),
+    ['D', 'A', 'E', 'B', 'F♯', 'C♯', 'G♯', 'A♭', 'E♭', 'B♭', 'F', 'C', 'G']);
+});
+
 test('switching scales keeps the root, renaming it when the new scale spells it differently', () => {
   const match = (id, choice) => T.nameOf(T.matchRoot(T.parseId(id), choice));
   assert.equal(match('Gb', { family: 'minor', form: 'natural' }), 'F♯');

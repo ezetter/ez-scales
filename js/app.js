@@ -8,7 +8,7 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1 };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, order: 'alphabetical' };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
@@ -40,6 +40,7 @@
       if (T.MODES.some(m => m.id === saved.mode)) settings.mode = saved.mode;
       if (T.MINOR_FORMS.some(f => f.id === saved.form)) settings.form = saved.form;
       if (saved.octaves === 1 || saved.octaves === 2) settings.octaves = saved.octaves;
+      if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
     return settings;
@@ -70,10 +71,11 @@
   $('modes').innerHTML = T.MODES.map(m => choiceHTML('mode', m.id, m.name)).join('');
   $('forms').innerHTML = T.MINOR_FORMS.map(f => choiceHTML('form', f.id, f.name)).join('');
 
-  // The 13 root buttons, spelled for the current scale. They're only rebuilt when the spellings
-  // change, so keyboard focus stays put while moving through them.
+  // The 13 root buttons, spelled for the current scale, alphabetically or round the circle of
+  // fifths. They're only rebuilt when the spellings or order change, so keyboard focus stays put
+  // while moving through them.
   function renderRoots() {
-    const roots = T.rootsFor(state);
+    const roots = T.rootsFor(state, state.order);
     const spellings = roots.map(T.idOf).join(' ');
     if (rootsEl.dataset.roots === spellings) return;
     rootsEl.dataset.roots = spellings;
@@ -87,7 +89,7 @@
 
   function syncControls() {
     renderRoots();
-    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves) };
+    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), order: state.order };
     for (const [name, value] of Object.entries(values)) {
       const input = controls.querySelector(`input[name="${name}"][value="${value}"]`);
       if (input) input.checked = true;
@@ -102,6 +104,8 @@
       state.root = value;
     } else if (name === 'octaves') {
       state.octaves = Number(value);
+    } else if (name === 'order') {
+      state.order = value;
     } else if (name === 'family' || name === 'mode' || name === 'form') {
       state[name] = value;
       // Same key, spelled the new scale's way: G♭ major becomes F♯ minor.

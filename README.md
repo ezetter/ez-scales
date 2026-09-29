@@ -21,6 +21,7 @@ The notation library ([VexFlow](https://www.vexflow.com) 4.2.5) and the fonts lo
 | **Mode** | Ionian (default), Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian | Modes of the major scale, each built on the chosen root: D Dorian is D to D with C major's key signature. |
 | **Minor form** | Natural, Harmonic, Melodic | Melodic minor raises the 6th and 7th going up and comes back down as natural minor. |
 | **Octaves** | 1, 2 | Two octaves show how the fingering carries on through the middle of the scale. |
+| **Root order** | Alphabetical (default), Circle of fifths | How the root buttons are laid out. Alphabetical runs up the keyboard from C. Circle of fifths starts at the key with no sharps or flats (C major, A minor, D Dorian), goes through the sharp keys to six sharps, then the flat keys from six flats back to one: C G D A E B F♯ G♭ D♭ A♭ E♭ B♭ F in major. |
 
 Changing the scale keeps the same key, renamed if needed: G♭ major becomes F♯ minor.
 
