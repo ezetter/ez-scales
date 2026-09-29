@@ -271,13 +271,18 @@ test('in thirds and sixths the hands start on different degrees and keep the key
   const sixths = inMotion('C', 'sixths');
   assert.equal(run(sixths, 'right'), 'C:1 D:2 E:3 F:1 G:2 A:3 B:4 C:5 B:4 A:3 G:2 F:1 E:3 D:2 C:1');
   assert.equal(run(sixths, 'left'), 'E:3 F:2 G:1 A:3 B:2 C:1 D:4 E:3 D:4 C:1 B:2 A:3 G:1 F:2 E:3');
-  // Each hand's first note is the right interval above the other's, give or take octaves.
+  // The hands stay exactly a third (two letters up) or a sixth (five letters up) apart, note for
+  // note: C major in thirds starts on C3 and E3, in sixths on E3 and C4.
+  const starts = (s, hand) => `${staff(s, hand).notes[0].name}${staff(s, hand).notes[0].octave}`;
+  assert.deepEqual([starts(thirds, 'left'), starts(thirds, 'right')], ['C3', 'E3']);
+  assert.deepEqual([starts(sixths, 'left'), starts(sixths, 'right')], ['E3', 'C4']);
   for (const [motion, steps] of [['thirds', 2], ['sixths', 5]]) {
-    for (const id of ['C', 'Eb', 'Fs', 'B']) {
-      const s = inMotion(id, motion, 2);
-      const [right, left] = [staff(s, 'right').notes[0], staff(s, 'left').notes[0]];
-      assert.equal(((right.step - left.step) % 7 + 7) % 7, steps, `${s.title} ${motion}`);
-      assert.ok(right.midi > left.midi, `${s.title} ${motion}: right hand above`);
+    for (const id of ['C', 'D', 'Eb', 'Fs', 'A', 'B']) {
+      for (const octaves of [1, 2]) {
+        const s = inMotion(id, motion, octaves);
+        const [right, left] = [staff(s, 'right').notes, staff(s, 'left').notes];
+        right.forEach((note, i) => assert.equal(note.step - left[i].step, steps, `${s.title} ${motion}, note ${i}`));
+      }
     }
   }
 });

@@ -141,24 +141,40 @@
     return [Math.max(above, below), above + below];
   }
 
-  // The octave of each hand's starting note: whatever needs the fewest ledger lines on that
+  // The octave of each hand's starting tonic: whatever needs the fewest ledger lines on that
   // hand's staff. Between equally tidy choices the right hand goes higher and the left hand lower,
   // so the extra ledger lines stay outside the system and the space between the staves is clear.
-  // `from` is the scale degree each hand starts on (0 for the tonic). Returned octaves are the
-  // tonic's, counted from where each hand's run begins.
-  function placeHands(root, octaves, from = { right: 0, left: 0 }) {
+  function placeHands(root, octaves) {
     const span = 7 * octaves;
     const tidiest = (staff, higher) => {
-      const letter = root.letter + from[higher ? 'right' : 'left'];
       let best = null;
       for (let octave = 1; octave <= 6; octave++) {
-        const low = octave * 7 + letter;
+        const low = octave * 7 + root.letter;
         const key = [...ledgerCost(low, low + span, STAVES[staff]), higher ? -octave : octave];
         if (!best || compare(key, best.key) < 0) best = { octave, key };
       }
       return best.octave;
     };
     return { right: tidiest('treble', true), left: tidiest('bass', false) };
+  }
+
+  // Thirds and sixths keep the hands exactly that interval apart, so they're placed together:
+  // the left hand's first note, and the right hand's the interval above it, at whichever octave
+  // needs the fewest ledger lines on the two staves, nearest middle C on a tie. `from` is the
+  // scale degree each hand starts on. Returns each hand's lowest staff position.
+  function placeInterval(root, octaves, from) {
+    const span = 7 * octaves;
+    const gap = mod(from.right - from.left, 7);
+    let best = null;
+    for (let octave = 1; octave <= 5; octave++) {
+      const left = octave * 7 + root.letter + from.left;
+      const right = left + gap;
+      const treble = ledgerCost(right, right + span, STAVES.treble);
+      const bass = ledgerCost(left, left + span, STAVES.bass);
+      const key = [Math.max(treble[0], bass[0]), treble[1] + bass[1], Math.abs(right - 28)];
+      if (!best || compare(key, best.key) < 0) best = { right, left, key };
+    }
+    return { right: best.right, left: best.left };
   }
 
   // Contrary motion starts and ends with both hands on the same tonic: the octave whose run (up
@@ -257,9 +273,9 @@
     return path;
   }
 
-  // How the hands move. In thirds, the left hand starts on the tonic and the right hand a third
-  // higher on the 3rd degree; in sixths, the left hand starts on the 3rd degree and the right
-  // hand a sixth higher on the tonic. Both hands play the scale of the key either way.
+  // How the hands move. In thirds, the left hand starts on the tonic and the right hand exactly a
+  // third higher on the 3rd degree; in sixths, the left hand starts on the 3rd degree and the right
+  // hand exactly a sixth higher on the tonic. Both hands play the scale of the key either way.
   const MOTIONS = [
     { id: 'parallel', name: 'Parallel', from: { right: 0, left: 0 } },
     { id: 'thirds', name: 'Parallel in thirds', from: { right: 2, left: 0 } },
@@ -355,12 +371,11 @@
     if (contrary) {
       const start = placeUnison(root, octaves) * 7 + root.letter;
       lows = { right: start, left: start - span };
+    } else if (motion.id === 'parallel') {
+      const placement = placeHands(root, octaves);
+      lows = { right: placement.right * 7 + root.letter, left: placement.left * 7 + root.letter };
     } else {
-      const placement = placeHands(root, octaves, motion.from);
-      lows = {
-        right: placement.right * 7 + root.letter + motion.from.right,
-        left: placement.left * 7 + root.letter + motion.from.left,
-      };
+      lows = placeInterval(root, octaves, motion.from);
     }
     const { durations, bars } = rhythm(2 * top + 1);
 
