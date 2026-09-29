@@ -141,15 +141,18 @@
     return [Math.max(above, below), above + below];
   }
 
-  // The octave of each hand's starting tonic: whatever needs the fewest ledger lines on that
+  // The octave of each hand's starting note: whatever needs the fewest ledger lines on that
   // hand's staff. Between equally tidy choices the right hand goes higher and the left hand lower,
   // so the extra ledger lines stay outside the system and the space between the staves is clear.
-  function placeHands(root, octaves) {
+  // `from` is the scale degree each hand starts on (0 for the tonic). Returned octaves are the
+  // tonic's, counted from where each hand's run begins.
+  function placeHands(root, octaves, from = { right: 0, left: 0 }) {
     const span = 7 * octaves;
     const tidiest = (staff, higher) => {
+      const letter = root.letter + from[higher ? 'right' : 'left'];
       let best = null;
       for (let octave = 1; octave <= 6; octave++) {
-        const low = octave * 7 + root.letter;
+        const low = octave * 7 + letter;
         const key = [...ledgerCost(low, low + span, STAVES[staff]), higher ? -octave : octave];
         if (!best || compare(key, best.key) < 0) best = { octave, key };
       }
@@ -213,42 +216,56 @@
     return best.start;
   }
 
-  // Fingers for each note of a run. `path` gives each note's degree above the lowest tonic (0 to
-  // top) and whether it's on a rising stretch, which picks the scale form and fingering for that
-  // direction. `up` and `down` are each direction's black keys (different only in melodic minor).
-  // Every note keeps the finger the scale gives its key, except at the ends of the run.
+  // Fingers for each note of a run. `path` gives each note's height in scale steps above the run's
+  // lowest note (0 to top), its scale degree (0-6, tonic 0), and whether it's on a rising stretch,
+  // which picks the scale form and fingering for that direction. `up` and `down` are each
+  // direction's black keys (different only in melodic minor). Every note keeps the finger the
+  // scale gives its key, except at the ends of the run.
   function fingerPath(path, up, down, hand, top, preferred) {
     const upFingers = fingersFor(chooseStart(up, hand, preferred), hand);
     const downFingers = fingersFor(chooseStart(down, hand, preferred), hand);
-    const belowUp = upFingers[(top - 1) % 7];
-    const belowDown = downFingers[(top - 1) % 7];
-    return path.map(({ degree, rising }) => {
+    const degreeAt = height => path.find(step => step.height === height).degree;
+    const belowUp = upFingers[degreeAt(top - 1)];
+    const belowDown = downFingers[degreeAt(top - 1)];
+    return path.map(({ height, degree, rising }) => {
       const fingers = rising ? upFingers : downFingers;
-      if (degree === top) {
+      if (height === top) {
         // The right hand's top note carries on from the fingers under it rather than taking the
         // thumb: 5 after 4 in C major, 4 after 3 in F major, 3 after 1 and 2 where the two
         // directions differ.
         if (hand === 'right') return Math.max(belowUp, belowDown) + 1;
-        return belowUp !== 1 && belowDown !== 1 ? Math.min(belowUp, belowDown) - 1 : upFingers[top % 7];
+        return belowUp !== 1 && belowDown !== 1 ? Math.min(belowUp, belowDown) - 1 : upFingers[degree];
       }
       // The left hand's bottom note joins the fingers above it rather than taking the thumb: 5 4 3 2 1.
-      if (degree === 0 && hand === 'left' && fingers[0] === 1) return fingers[1] + 1;
-      return fingers[degree % 7];
+      if (height === 0 && hand === 'left' && fingers[degree] === 1) return fingers[degreeAt(1)] + 1;
+      return fingers[degree];
     });
   }
 
-  // A run's degrees, lowest tonic = 0. Parallel motion (and the right hand in contrary motion)
-  // goes up and back down; the left hand in contrary motion goes down from the top and back up.
-  function runPath(top, downFirst) {
+  // A run's notes as heights in scale steps above its lowest note, which is scale degree `from`.
+  // Parallel motion (and the right hand in contrary motion) goes up and back down; the left hand
+  // in contrary motion goes down from the top and back up.
+  function runPath(top, downFirst, from = 0) {
     const path = [];
     for (let j = 0; j <= 2 * top; j++) {
       const out = j <= top;
-      path.push(downFirst
-        ? { degree: out ? top - j : j - top, rising: !out }
-        : { degree: out ? j : 2 * top - j, rising: out });
+      const step = downFirst
+        ? { height: out ? top - j : j - top, rising: !out }
+        : { height: out ? j : 2 * top - j, rising: out };
+      path.push({ ...step, degree: (from + step.height) % 7 });
     }
     return path;
   }
+
+  // How the hands move. In thirds, the left hand starts on the tonic and the right hand a third
+  // higher on the 3rd degree; in sixths, the left hand starts on the 3rd degree and the right
+  // hand a sixth higher on the tonic. Both hands play the scale of the key either way.
+  const MOTIONS = [
+    { id: 'parallel', name: 'Parallel', from: { right: 0, left: 0 } },
+    { id: 'thirds', name: 'Parallel in thirds', from: { right: 2, left: 0 } },
+    { id: 'sixths', name: 'Parallel in sixths', from: { right: 0, left: 2 } },
+    { id: 'contrary', name: 'Contrary', from: { right: 0, left: 0 } },
+  ];
 
   // True where the hand shifts position: the thumb passes under, or a finger crosses over it.
   function crossings(notes, fingers, hand) {
@@ -317,8 +334,8 @@
   }
 
   // Everything the page draws for one scale. settings: { root, family, mode, form, octaves, motion },
-  // with root as a note name and motion 'parallel' (the default) or 'contrary'. Each staff's notes run up from the tonic and back down; `top` is the
-  // index of the highest note. `bars` holds each 4/4 bar's [first, last] note index.
+  // with root as a note name and motion one of the MOTIONS ids ('parallel' by default). `top` is
+  // the index where each staff's run turns round; `bars` holds each 4/4 bar's [first, last] index.
   function buildScale(settings) {
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
     const type = scaleType(choice);
@@ -330,15 +347,20 @@
     const signature = keySignature(fifthsOf(root) + type.keyOffset);
     const blackKeys = degrees => degrees.map(isBlackKey);
     const naturalMinor = type.family === 'minor' ? blackKeys(spell(root, NATURAL_MINOR)) : null;
-    const contrary = settings.motion === 'contrary';
+    const motion = MOTIONS.find(m => m.id === settings.motion) || MOTIONS[0];
+    const contrary = motion.id === 'contrary';
     const span = 7 * octaves;
+    // Each hand's lowest staff position.
     let lows;
     if (contrary) {
       const start = placeUnison(root, octaves) * 7 + root.letter;
       lows = { right: start, left: start - span };
     } else {
-      const placement = placeHands(root, octaves);
-      lows = { right: placement.right * 7 + root.letter, left: placement.left * 7 + root.letter };
+      const placement = placeHands(root, octaves, motion.from);
+      lows = {
+        right: placement.right * 7 + root.letter + motion.from.right,
+        left: placement.left * 7 + root.letter + motion.from.left,
+      };
     }
     const { durations, bars } = rhythm(2 * top + 1);
 
@@ -346,8 +368,8 @@
       { clef: 'treble', hand: 'right' },
       { clef: 'bass', hand: 'left' },
     ].map(staff => {
-      const path = runPath(top, contrary && staff.hand === 'left');
-      const notes = path.map(({ degree, rising }) => placeNote(lows[staff.hand] + degree, (rising ? up : down)[degree % 7]));
+      const path = runPath(top, contrary && staff.hand === 'left', motion.from[staff.hand]);
+      const notes = path.map(({ height, degree, rising }) => placeNote(lows[staff.hand] + height, (rising ? up : down)[degree]));
       const preferred = naturalMinor ? chooseStart(naturalMinor, staff.hand) : undefined;
       const fingers = fingerPath(path, blackKeys(up), blackKeys(down), staff.hand, top, preferred);
       const crossed = crossings(notes, fingers, staff.hand);
@@ -360,13 +382,14 @@
       };
     });
 
-    return { root, choice, type, title: titleOf(root, type), octaves, motion: contrary ? 'contrary' : 'parallel', top, bars, up, down, signature, staves };
+    return { root, choice, type, title: titleOf(root, type), octaves, motion: motion.id, top, bars, up, down, signature, staves };
   }
 
   return {
     LETTERS,
     MODES,
     MINOR_FORMS,
+    MOTIONS,
     scaleType,
     rootsFor,
     matchRoot,

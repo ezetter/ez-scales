@@ -112,7 +112,7 @@
     gap: 26px;
   }
 
-  /* Title on the left; the display options (octaves, root order) top right,
+  /* Title on the left; the display options (octaves, motion, root order) top right,
      dropping below the title when there isn't room beside it. */
   .masthead {
     display: flex;
@@ -125,7 +125,41 @@
   .view-options {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px 28px;
+    gap: 16px 20px;
+  }
+
+  /* Dropdowns, drawn to match the choice buttons. The arrow is a bordered corner in the text
+     color, so it follows the theme. */
+  .select { position: relative; display: block; }
+  .select select {
+    appearance: none;
+    -webkit-appearance: none;
+    margin: 0;
+    padding: 7px 36px 7px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 500 15px/20px var(--font-ui);
+    cursor: pointer;
+  }
+  .select select:hover { border-color: var(--staff); }
+  .select select:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .select::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    width: 7px;
+    height: 7px;
+    margin-top: -6px;
+    border-right: 1.6px solid var(--muted);
+    border-bottom: 1.6px solid var(--muted);
+    transform: rotate(45deg);
+    pointer-events: none;
   }
   .masthead h1 {
     margin: 0;
@@ -390,27 +424,28 @@
       <h1>Piano Scales with Fingerings</h1>
     </div>
     <div class="view-options" role="group" aria-label="Display options">
-      <fieldset>
-        <legend class="label">Octaves</legend>
-        <div class="choices">
-          <label class="pick choice"><input type="radio" name="octaves" id="octaves-1" value="1"><span>1</span></label>
-          <label class="pick choice"><input type="radio" name="octaves" id="octaves-2" value="2"><span>2</span></label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend class="label">Motion</legend>
-        <div class="choices">
-          <label class="pick choice"><input type="radio" name="motion" id="motion-parallel" value="parallel"><span>Parallel</span></label>
-          <label class="pick choice"><input type="radio" name="motion" id="motion-contrary" value="contrary"><span>Contrary</span></label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend class="label">Root order</legend>
-        <div class="choices">
-          <label class="pick choice"><input type="radio" name="order" id="order-alphabetical" value="alphabetical"><span>Alphabetical</span></label>
-          <label class="pick choice"><input type="radio" name="order" id="order-fifths" value="fifths"><span>Circle of fifths</span></label>
-        </div>
-      </fieldset>
+      <div>
+        <label class="label" for="octaves">Octaves</label>
+        <span class="select">
+          <select name="octaves" id="octaves">
+            <option value="1">1</option>
+            <option value="2">2</option>
+          </select>
+        </span>
+      </div>
+      <div>
+        <label class="label" for="motion">Motion</label>
+        <span class="select"><select name="motion" id="motion"></select></span>
+      </div>
+      <div>
+        <label class="label" for="order">Root order</label>
+        <span class="select">
+          <select name="order" id="order">
+            <option value="alphabetical">Alphabetical</option>
+            <option value="fifths">Circle of fifths</option>
+          </select>
+        </span>
+      </div>
     </div>
   </header>
 

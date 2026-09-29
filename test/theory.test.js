@@ -202,7 +202,7 @@ test('every scale is playable: thumbs on white keys, crossings through the thumb
     const minor = MINOR_FORMS.includes(kind);
     const choice = { family: minor ? 'minor' : 'major', mode: kind, form: kind };
     for (const root of T.rootsFor(choice)) {
-      for (const [octaves, motion] of [[1, 'parallel'], [2, 'parallel'], [1, 'contrary'], [2, 'contrary']]) {
+      for (const [octaves, motion] of T.MOTIONS.flatMap(m => [[1, m.id], [2, m.id]])) {
         const s = T.buildScale({ ...choice, root, octaves, motion });
         for (const { hand, notes } of s.staves) {
           const where = `${s.title}, ${octaves} octave(s) ${motion}, ${hand} hand`;
@@ -254,6 +254,30 @@ test('contrary motion starts in unison and keeps each hand on its usual fingerin
       const together = new Map(inner(scale(id, kind, octaves)).map(n => [n.name, n.finger]));
       for (const note of inner(apart)) assert.equal(note.finger, together.get(note.name), `${apart.title}, ${note.name}`);
       assert.equal(staff(apart, 'right').notes[0].midi, staff(apart, 'left').notes[0].midi, `${apart.title} starts in unison`);
+    }
+  }
+});
+
+test('in thirds and sixths the hands start on different degrees and keep the key\'s fingering', () => {
+  const inMotion = (id, motion, octaves = 1) => T.buildScale({
+    root: T.parseId(id), family: 'major', mode: 'ionian', octaves, motion,
+  });
+  const run = (s, hand) => staff(s, hand).notes.map(n => `${n.name}:${n.finger}`).join(' ');
+  // Thirds: left hand on the tonic, right hand a third higher.
+  const thirds = inMotion('C', 'thirds');
+  assert.equal(run(thirds, 'right'), 'E:3 F:1 G:2 A:3 B:4 C:1 D:2 E:3 D:2 C:1 B:4 A:3 G:2 F:1 E:3');
+  assert.equal(run(thirds, 'left'), 'C:5 D:4 E:3 F:2 G:1 A:3 B:2 C:1 B:2 A:3 G:1 F:2 E:3 D:4 C:5');
+  // Sixths: left hand on the 3rd degree, right hand a sixth higher on the tonic.
+  const sixths = inMotion('C', 'sixths');
+  assert.equal(run(sixths, 'right'), 'C:1 D:2 E:3 F:1 G:2 A:3 B:4 C:5 B:4 A:3 G:2 F:1 E:3 D:2 C:1');
+  assert.equal(run(sixths, 'left'), 'E:3 F:2 G:1 A:3 B:2 C:1 D:4 E:3 D:4 C:1 B:2 A:3 G:1 F:2 E:3');
+  // Each hand's first note is the right interval above the other's, give or take octaves.
+  for (const [motion, steps] of [['thirds', 2], ['sixths', 5]]) {
+    for (const id of ['C', 'Eb', 'Fs', 'B']) {
+      const s = inMotion(id, motion, 2);
+      const [right, left] = [staff(s, 'right').notes[0], staff(s, 'left').notes[0]];
+      assert.equal(((right.step - left.step) % 7 + 7) % 7, steps, `${s.title} ${motion}`);
+      assert.ok(right.midi > left.midi, `${s.title} ${motion}: right hand above`);
     }
   }
 });

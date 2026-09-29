@@ -42,7 +42,7 @@
       if (T.MODES.some(m => m.id === saved.mode)) settings.mode = saved.mode;
       if (T.MINOR_FORMS.some(f => f.id === saved.form)) settings.form = saved.form;
       if (saved.octaves === 1 || saved.octaves === 2) settings.octaves = saved.octaves;
-      if (saved.motion === 'parallel' || saved.motion === 'contrary') settings.motion = saved.motion;
+      if (T.MOTIONS.some(m => m.id === saved.motion)) settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
@@ -73,6 +73,7 @@
 
   $('modes').innerHTML = T.MODES.map(m => choiceHTML('mode', m.id, m.name)).join('');
   $('forms').innerHTML = T.MINOR_FORMS.map(f => choiceHTML('form', f.id, f.name)).join('');
+  $('motion').innerHTML = T.MOTIONS.map(m => `<option value="${m.id}">${escapeHTML(m.name)}</option>`).join('');
 
   // The 13 root buttons, spelled for the current scale, alphabetically or round the circle of
   // fifths. They're only rebuilt when the spellings or order change, so keyboard focus stays put
@@ -94,6 +95,11 @@
     renderRoots();
     const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order };
     for (const [name, value] of Object.entries(values)) {
+      const select = settingsEl.querySelector(`select[name="${name}"]`);
+      if (select) {
+        select.value = value;
+        continue;
+      }
       const input = settingsEl.querySelector(`input[name="${name}"][value="${value}"]`);
       if (input) input.checked = true;
     }
@@ -132,9 +138,13 @@
     const rootName = T.nameOf(scale.root);
     $('scale-title').innerHTML = nameHTML(scale.root) + escapeHTML(scale.title.slice(rootName.length));
     const span = scale.octaves === 1 ? 'One octave' : 'Two octaves';
+    const intervals = {
+      thirds: ' in thirds, the right hand a third above the left',
+      sixths: ' in sixths, the right hand a sixth above the left',
+    };
     $('scale-sub').textContent = scale.motion === 'contrary'
       ? `${span} in contrary motion, hands starting together on the tonic`
-      : `${span}, ascending and descending`;
+      : `${span}${intervals[scale.motion] || ''}, ascending and descending`;
     const parent = `${nameHTML(scale.signature.major)} major`;
     const facts = [['Key signature', signatureHTML(scale.signature)]];
     if (scale.type.family === 'major') {
@@ -237,7 +247,11 @@
     const rootName = T.nameOf(scale.root);
     const name = T.spokenName(scale.root) + scale.title.slice(rootName.length);
     const signature = scale.signature.count ? plural(scale.signature.count, scale.signature.kind) : 'no sharps or flats';
-    const motion = scale.motion === 'contrary' ? 'in contrary motion, out and back' : 'up and down';
+    const motion = {
+      contrary: 'in contrary motion, out and back',
+      thirds: 'up and down with the hands a third apart',
+      sixths: 'up and down with the hands a sixth apart',
+    }[scale.motion] || 'up and down';
     return `Grand staff: ${name}, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} ${motion}, ` +
       `with ${signature} in the key signature, in 4/4 time as eighth notes. The table below lists each note's finger.`;
   }
