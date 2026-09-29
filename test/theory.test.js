@@ -366,6 +366,54 @@ test('the octave shift moves both hands whole octaves, keeping fingering and red
   assert.notEqual(gFlat(-1), 4);
 });
 
+test('arpeggios: root position and both inversions on one line, with standard fingering', () => {
+  const arpeggios = (id, family = 'major', octaves = 2, mode = 'ionian') => T.buildScale({
+    root: T.parseId(id), family, mode, form: 'natural', octaves, pattern: 'arpeggio',
+  });
+  // Fingering going up each inversion: [right hand, left hand] per inversion.
+  const going = s => s.segments.map(g => ['right', 'left']
+    .map(hand => staff(s, hand).notes.slice(g.from, g.top + 1).map(n => n.finger).join('')));
+  assert.deepEqual(going(arpeggios('C')), [['1231235', '5421421'], ['1241245', '5421421'], ['1241245', '5321321']]);
+  assert.deepEqual(going(arpeggios('Eb'))[0], ['2124124', '2142142']);
+  assert.deepEqual(going(arpeggios('Ab'))[0], ['2124124', '2142142']);
+  assert.deepEqual(going(arpeggios('Db'))[0], ['2124124', '2142142']);
+  assert.deepEqual(going(arpeggios('Bb'))[0], ['2124124', '3213213']);
+  assert.deepEqual(going(arpeggios('C', 'minor'))[0], ['1231235', '5421421']);
+  assert.deepEqual(going(arpeggios('C', 'major', 1))[0], ['1235', '5421']);
+
+  const c = arpeggios('C');
+  assert.equal(c.title, 'C Major Arpeggios');
+  assert.equal(c.chord, 'C major');
+  assert.deepEqual(c.segments.map(g => g.name), ['Root position', '1st inversion', '2nd inversion']);
+  // Each inversion starts on its own chord tone, a new bar, and near middle C.
+  assert.deepEqual(c.segments.map(g => `${staff(c, 'right').notes[g.from].name}${staff(c, 'right').notes[g.from].octave}`), ['C4', 'E4', 'G3']);
+  for (const g of c.segments) assert.ok(c.bars.some(([from]) => from === g.from));
+  // Two octaves: 13 notes an inversion, in bars that each add up to four beats.
+  assert.equal(staff(c, 'right').notes.length, 39);
+  const eighths = { 8: 1, q: 2, h: 4, hd: 6, w: 8 };
+  for (const [from, to] of c.bars) {
+    assert.equal(staff(c, 'left').notes.slice(from, to + 1).reduce((sum, n) => sum + eighths[n.duration], 0), 8);
+  }
+  // The hands stay an octave apart, and modes and minor keys use their own tonic triad.
+  staff(c, 'right').notes.forEach((note, i) => assert.equal(note.midi - staff(c, 'left').notes[i].midi, 12));
+  assert.equal(arpeggios('D', 'major', 1, 'dorian').chord, 'D minor');
+  assert.equal(arpeggios('B', 'major', 1, 'locrian').chord, 'B diminished');
+  assert.equal(arpeggios('A', 'minor', 1).title, 'A Minor Arpeggios');
+  // Every key plays cleanly: thumbs off black keys unless the whole chord is black.
+  for (const family of ['major', 'minor']) {
+    for (const root of T.rootsFor({ family, mode: 'ionian', form: 'natural' })) {
+      const s = T.buildScale({ root, family, mode: 'ionian', form: 'natural', octaves: 2, pattern: 'arpeggio' });
+      const allBlack = s.triad.every(T.isBlackKey);
+      for (const { notes } of s.staves) {
+        notes.forEach((note, i) => {
+          if (note.finger === 1 && !allBlack) assert.ok(!note.black, `${s.title}: thumb on ${note.name}`);
+          if (i > 0 && !s.segments.some(g => g.from === i)) assert.notEqual(note.finger, notes[i - 1].finger, `${s.title} ${i}`);
+        });
+      }
+    }
+  }
+});
+
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {
   const one = scale('C', 'ionian');
   assert.deepEqual(one.bars, [[0, 7], [8, 14]]);

@@ -8,7 +8,7 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0 };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0, pattern: 'scale' };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
@@ -45,6 +45,7 @@
       if (T.MOTIONS.some(m => m.id === saved.motion)) settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
       if (Number.isInteger(saved.shift) && Math.abs(saved.shift) <= T.MAX_SHIFT) settings.shift = saved.shift;
+      if (saved.pattern === 'scale' || saved.pattern === 'arpeggio') settings.pattern = saved.pattern;
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
     return settings;
@@ -94,7 +95,7 @@
 
   function syncControls() {
     renderRoots();
-    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order };
+    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order, pattern: state.pattern };
     for (const [name, value] of Object.entries(values)) {
       const select = settingsEl.querySelector(`select[name="${name}"]`);
       if (select) {
@@ -106,6 +107,8 @@
     }
     $('mode-field').hidden = state.family !== 'major';
     $('form-field').hidden = state.family !== 'minor';
+    // Arpeggios are always in parallel motion.
+    $('motion-field').hidden = state.pattern === 'arpeggio';
     $('shift-value').textContent = state.shift > 0 ? `+${state.shift}` : state.shift < 0 ? `−${-state.shift}` : '0';
     $('shift-down').disabled = state.shift <= -T.MAX_SHIFT;
     $('shift-up').disabled = state.shift >= T.MAX_SHIFT;
@@ -127,6 +130,8 @@
       state.octaves = Number(value);
     } else if (name === 'motion') {
       state.motion = value;
+    } else if (name === 'pattern') {
+      state.pattern = value;
     } else if (name === 'order') {
       state.order = value;
     } else if (name === 'family' || name === 'mode' || name === 'form') {
@@ -154,13 +159,23 @@
       thirds: ' in thirds, the right hand a third above the left',
       sixths: ' in sixths, the right hand a sixth above the left',
     };
-    $('scale-sub').textContent = scale.motion === 'contrary'
-      ? `${span} in contrary motion, hands starting together on the tonic`
-      : `${span}${intervals[scale.motion] || ''}, ascending and descending`;
+    if (scale.pattern === 'arpeggio') {
+      $('scale-sub').textContent = `Root position, 1st and 2nd inversions, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} each, ascending and descending`;
+    } else {
+      $('scale-sub').textContent = scale.motion === 'contrary'
+        ? `${span} in contrary motion, hands starting together on the tonic`
+        : `${span}${intervals[scale.motion] || ''}, ascending and descending`;
+    }
     const moved = { '-2': 'two octaves lower', '-1': 'an octave lower', 1: 'an octave higher', 2: 'two octaves higher' }[scale.shift];
     if (moved) $('scale-sub').textContent += `, ${moved} than usual`;
     const parent = `${nameHTML(scale.signature.major)} major`;
     const facts = [['Key signature', signatureHTML(scale.signature)]];
+    if (scale.pattern === 'arpeggio') {
+      facts.push(['Chord', `${nameHTML(scale.triad[0])}${escapeHTML(scale.chord.slice(T.nameOf(scale.triad[0]).length))}`]);
+      facts.push(['Notes', namesHTML(scale.triad)]);
+      $('facts').innerHTML = facts.map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join('');
+      return;
+    }
     if (scale.type.family === 'major') {
       const { mode } = scale.type;
       facts.push(['Mode', mode.number === 1 ? 'Ionian, the major scale' : `${ORDINALS[mode.number]} mode of ${parent}`]);
@@ -252,7 +267,9 @@
       return { above, below };
     });
     const rightRow = Math.max(24, treble.above + 12);
-    const trebleTop = 30 + rightRow;
+    // Arpeggios name each inversion above the right hand's finger row.
+    const labelRoom = scale.segments ? 22 : 0;
+    const trebleTop = 30 + labelRoom + rightRow;
     const bassTop = trebleTop + 40 + Math.max(60, treble.below + bass.above + 24);
     const leftRow = bassTop + 40 + Math.max(32, bass.below + 24);
     return { tops: [trebleTop, bassTop], rows: [trebleTop - rightRow, leftRow], height: leftRow + 16 };
@@ -267,6 +284,10 @@
       thirds: 'up and down with the hands a third apart',
       sixths: 'up and down with the hands a sixth apart',
     }[scale.motion] || 'up and down';
+    if (scale.pattern === 'arpeggio') {
+      return `Grand staff: ${name} in root position, 1st and 2nd inversion, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} ` +
+        `each up and down, with ${signature} in the key signature, in 4/4 time as eighth notes. The tables below list each note's finger.`;
+    }
     return `Grand staff: ${name}, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} ${motion}, ` +
       `with ${signature} in the key signature, in 4/4 time as eighth notes. The table below lists each note's finger.`;
   }
@@ -406,6 +427,9 @@
       if (note.crossing) svg.appendChild(svgElement('circle', { cx, cy: row - 6, r: 11, class: 'crossing-ring' }));
       addText(svg, cx, row, note.finger, note.crossing ? 'finger is-crossing' : 'finger');
     }));
+    (scale.segments || []).forEach(g => {
+      addText(svg, staveNotes[0][g.from].getNoteHeadBeginX() - 4, layout.rows[0] - 24, g.name, 'segment-label', 'start');
+    });
     addText(svg, left + 2, layout.rows[0], 'RH', 'hand-label', 'start');
     addText(svg, left + 2, layout.rows[1], 'LH', 'hand-label', 'start');
 
@@ -413,10 +437,10 @@
   }
 
   // A note keeps its finger on the way down unless the notes or fingers change (melodic minor).
-  function mirrored(scale) {
-    const last = 2 * scale.top;
-    return scale.staves.every(({ notes }) => notes.slice(0, scale.top + 1).every((note, i) => {
-      const back = notes[last - i];
+  // True when every note keeps its finger on the way back down a run from `from` to `top`.
+  function mirrored(scale, from = 0, top = scale.top) {
+    return scale.staves.every(({ notes }) => notes.slice(from, top + 1).every((note, i) => {
+      const back = notes[2 * top - from - i];
       return back.step === note.step && back.alter === note.alter && back.finger === note.finger;
     }));
   }
@@ -427,7 +451,7 @@
     for (let i = from; i <= to; i++) range.push(i);
     // A crossing belongs to the move into its note, so the second table's first note (the turning
     // point, reached in the first half) never shows one.
-    const finger = (note, i) => (note.crossing && !(from === scale.top && i === from)
+    const finger = (note, i) => (note.crossing && !(from === scale.top && i === from) && i !== from
       ? `<td><span class="ring" title="Crossing">${note.finger}</span></td>`
       : `<td><span>${note.finger}</span></td>`);
     const fingers = (label, part) => `<tr class="hand"><th scope="row">${label}</th>${range.map(i => finger(part.notes[i], i)).join('')}</tr>`;
@@ -441,6 +465,13 @@
   }
 
   function renderGlance(scale) {
+    if (scale.pattern === 'arpeggio') {
+      // One table per inversion, going up; coming down each note keeps its finger.
+      const tables = scale.segments.map(g => glanceTable(`${g.name}, ascending`, scale, g.from, g.top)).join('');
+      const same = scale.segments.every(g => mirrored(scale, g.from, g.top));
+      $('glance').innerHTML = tables + (same ? '<p class="glance-note">Descending, each note keeps the finger it had going up.</p>' : '');
+      return;
+    }
     const contrary = scale.motion === 'contrary';
     const [outward, back] = contrary ? ['Hands moving apart', 'Hands coming back together'] : ['Ascending', 'Descending'];
     const first = glanceTable(outward, scale, 0, scale.top);

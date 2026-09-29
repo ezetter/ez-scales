@@ -20,6 +20,7 @@ The notation library ([VexFlow](https://www.vexflow.com) 4.2.5) and the fonts lo
 | **Scale** | Major, Minor | Major offers the seven modes; Minor offers the three minor forms. |
 | **Mode** | Ionian (default), Dorian, Phrygian, Lydian, Mixolydian, Aeolian, Locrian | Modes of the major scale, each built on the chosen root: D Dorian is D to D with C major's key signature. |
 | **Minor form** | Natural, Harmonic, Melodic | Melodic minor raises the 6th and 7th going up and comes back down as natural minor. |
+| **Pattern** | Scales (default), Arpeggios | Arpeggios play the scale's tonic triad (major, minor, or diminished for Locrian) in root position, 1st inversion and 2nd inversion, one after another on one line. Each goes up the chosen number of octaves and back, starts a new bar, and is labeled above the staff. Arpeggios are always in parallel motion an octave apart, so Motion is hidden. |
 | **Octaves** | 1, 2 | Two octaves show how the fingering carries on through the middle of the scale. |
 | **Motion** | Parallel (default), Parallel in thirds, Parallel in sixths, Contrary | Parallel: both hands go up together, exactly an octave apart, and come back down. In thirds: the left hand starts on the tonic and the right hand exactly a third higher, on the 3rd degree (C3 and E3 in C major). In sixths: the right hand starts on the tonic nearest middle C and the left hand exactly a sixth lower, on the 3rd degree (E3 and C4 in C major, B2 and G3 in G, C♯3 and A3 in A, F♯3 and D4 in D). F♯ and G♭ are a tritone from middle C either way and take the lower tonic (B♭2 and G♭3 in G♭). The hands stay that interval apart throughout, so a hand may spend part of the run in the other hand's clef (see below). Contrary: both hands start in unison on the tonic, the right hand goes up while the left goes down, and they come back together. Each hand keeps the key's usual fingering on every note; in melodic minor each hand plays the raised 6th and 7th only while it's going up. |
 | **Octave shift** | ↓ and ↑ arrows, −2 to +2 (default 0) | Moves both hands up or down a whole octave per press. Fingering and accidentals stay the same; clefs are worked out again for the new range, so a hand may change clef where it didn't before. |
@@ -48,6 +49,10 @@ Major and minor scales match the standard fingerings in piano scale books, and `
 6. Going up, the right hand plays 1 2 3 from the tonic and the left hand 5 4 3 2 1.
 
 The top note takes the next finger instead of the thumb (5 in C major's right hand), and so does the left hand's bottom note. In F♯ and C♯ melodic minor the right hand's fingering changes on the way down, because the raised notes move the thumb.
+
+### Arpeggio fingering
+
+Arpeggios follow the same principles. The thumb takes one note of the triad per octave: a white key, the bottom note when that's white, and otherwise where it meets a black key as the hand turns (just after one in the right hand, just before one in the left). A group spanning more than a fifth uses the 4th finger, otherwise the 3rd. That gives the standard fingerings: C major 1 2 3 1 2 3 5 / 5 4 2 1 4 2 1 in root position, 1 2 4 / 5 4 2 1 in 1st inversion and 1 2 4 / 5 3 2 1 in 2nd; E♭, A♭ and D♭ major 2 1 2 4 / 2 1 4 2; B♭ major 2 1 2 4 / 3 2 1 3. Each inversion starts on its bottom note just above or below where root position starts, whichever needs fewer ledger lines.
 
 ## Tests
 

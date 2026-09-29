@@ -418,7 +418,9 @@
   // shift }, with root as a note name, motion one of the MOTIONS ids ('parallel' by default) and
   // shift the whole octaves to move both hands (0 by default, up to MAX_SHIFT each way). `top` is
   // the index where each staff's run turns round; `bars` holds each 4/4 bar's [first, last] index.
+  // settings.pattern 'arpeggio' builds the tonic triad's arpeggios instead (see buildArpeggios).
   function buildScale(settings) {
+    if (settings.pattern === 'arpeggio') return buildArpeggios(settings);
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
     const type = scaleType(choice);
     const root = matchRoot(settings.root, choice);
@@ -485,7 +487,148 @@
     });
 
     return {
-      root, choice, type, title: titleOf(root, type), octaves, motion: motion.id, shift, top, bars, up, down, signature, staves,
+      pattern: 'scale', root, choice, type, title: titleOf(root, type), octaves, motion: motion.id, shift, top, bars, up, down, signature, staves,
+    };
+  }
+
+  const INVERSIONS = ['Root position', '1st inversion', '2nd inversion'];
+
+  // Arpeggio fingering. A triad has three notes to the octave and the thumb takes one of them;
+  // the right hand plays 1 2 and then 3 or 4 before the thumb passes under, and the left hand
+  // 3 or 4, 2 and 1 before crossing over. The thumb goes where, in turn:
+  // 1. it plays a white key;
+  // 2. it plays the bottom note, when that's a white key;
+  // 3. it meets a black key where the hand turns (just after one for the right hand going up,
+  //    just before one for the left hand), as in the scales;
+  // 4. it's lower in the chord.
+  // The group before each thumb stretch uses the 4th finger when it spans more than a fifth
+  // (C E G then C: 1 2 3; E G C then E: 1 2 4), otherwise the 3rd. `tones` are the chord's three
+  // notes from the bottom of the run up.
+  function arpeggioCycle(tones, hand) {
+    const black = tones.map(isBlackKey);
+    const pcs = tones.map(pitchClass);
+    let thumb = 0;
+    let best = null;
+    for (let t = 0; t < 3; t++) {
+      const turnsAtBlack = hand === 'right' ? black[(t + 2) % 3] : black[(t + 1) % 3];
+      const score = [black[t] ? 0 : 1, t === 0 && !black[0] ? 1 : 0, turnsAtBlack ? 1 : 0, -t];
+      if (!best || compare(score, best) > 0) {
+        best = score;
+        thumb = t;
+      }
+    }
+    const span = (from, to) => mod(pcs[to] - pcs[from], 12);
+    const fingers = [];
+    if (hand === 'right') {
+      fingers[thumb] = 1;
+      fingers[(thumb + 1) % 3] = 2;
+      fingers[(thumb + 2) % 3] = span(thumb, (thumb + 2) % 3) > 7 ? 4 : 3;
+    } else {
+      fingers[thumb] = 1;
+      fingers[(thumb + 2) % 3] = 2;
+      fingers[(thumb + 1) % 3] = span((thumb + 1) % 3, thumb) > 7 ? 4 : 3;
+    }
+    return { thumb, fingers };
+  }
+
+  // Fingers for one arpeggio run up `octaves` octaves and back (3 notes to the octave).
+  function arpeggioFingers(tones, hand, octaves) {
+    const { thumb, fingers } = arpeggioCycle(tones, hand);
+    const top = 3 * octaves;
+    const run = [];
+    for (let p = 0; p <= top; p++) run.push(p);
+    for (let p = top - 1; p >= 0; p--) run.push(p);
+    return run.map(p => {
+      const finger = fingers[p % 3];
+      if (hand === 'right') {
+        // The top note takes the 5th rather than the thumb, and a single note below the first
+        // thumb takes the 2nd (2 1 2 4 in E♭ major).
+        if (p === top && finger === 1) return 5;
+        if (p === 0 && thumb === 1) return 2;
+        return finger;
+      }
+      // The left hand's bottom note takes the 5th rather than the thumb.
+      if (p === 0 && finger === 1) return 5;
+      return finger;
+    });
+  }
+
+  function chordName(tones) {
+    const third = mod(pitchClass(tones[1]) - pitchClass(tones[0]), 12);
+    const fifth = mod(pitchClass(tones[2]) - pitchClass(tones[0]), 12);
+    const quality = third === 4 ? (fifth === 8 ? 'augmented' : 'major') : (fifth === 6 ? 'diminished' : 'minor');
+    return `${nameOf(tones[0])} ${quality}`;
+  }
+
+  // Arpeggios of the scale's tonic triad in root position, 1st and 2nd inversion, one after the
+  // other on one line, each up `octaves` octaves and back in parallel motion an octave apart,
+  // each starting a new bar. `segments` gives each inversion's name and [from, to] note indexes
+  // and `top` (its highest note's index); `bars` covers the whole line.
+  function buildArpeggios(settings) {
+    const choice = { family: settings.family, mode: settings.mode, form: settings.form };
+    const type = scaleType(choice);
+    const root = matchRoot(settings.root, choice);
+    const octaves = settings.octaves === 2 ? 2 : 1;
+    const up = spell(root, type.up);
+    const down = spell(root, type.down);
+    const triad = [up[0], up[2], up[4]];
+    const signature = keySignature(fifthsOf(root) + type.keyOffset);
+    const shift = Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, Math.round(Number(settings.shift) || 0)));
+    const top = 3 * octaves;
+    const segments = [];
+    const bars = [];
+    const durations = [];
+    const hands = { right: [], left: [] };
+
+    // Root position goes where parallel scales would. Each inversion starts on its bottom note
+    // just above or just below that, whichever needs fewer ledger lines for the right hand, then
+    // whichever is nearer, so the three stay in one part of the keyboard.
+    const home = placeHands(root, octaves);
+    INVERSIONS.forEach((name, inversion) => {
+      const tones = [0, 1, 2].map(i => triad[(inversion + i) % 3]);
+      const from = hands.right.length;
+      const lift = mod(tones[0].letter - root.letter, 7);
+      const rise = [lift, lift - 7]
+        .map(r => ({ r, key: [...ledgerCost(home.right + r, home.right + r + 7 * octaves, STAVES.treble), Math.abs(r), -r] }))
+        .sort((a, b) => compare(a.key, b.key))[0].r;
+      const placement = { right: home.right + rise, left: home.left + rise };
+      const rhythmOf = rhythm(2 * top + 1);
+      rhythmOf.bars.forEach(([a, b]) => bars.push([from + a, from + b]));
+      durations.push(...rhythmOf.durations);
+      for (const hand of ['right', 'left']) {
+        const low = placement[hand] + 7 * shift;
+        // Staff steps from the bottom note to each chord tone above it.
+        const steps = tones.map(t => mod(t.letter - tones[0].letter, 7));
+        const run = [];
+        for (let p = 0; p <= top; p++) run.push(p);
+        for (let p = top - 1; p >= 0; p--) run.push(p);
+        const notes = run.map(p => placeNote(low + 7 * Math.floor(p / 3) + steps[p % 3], tones[p % 3]));
+        const fingers = arpeggioFingers(tones, hand, octaves);
+        const crossed = crossings(notes, fingers, hand);
+        const clefs = clefsFor(notes, hand === 'right' ? 'treble' : 'bass', top);
+        notes.forEach((note, i) => hands[hand].push({ ...note, clef: clefs[i], finger: fingers[i], crossing: crossed[i] }));
+      }
+      segments.push({ name, from, to: hands.right.length - 1, top: from + top, chord: tones });
+    });
+
+    const staves = [
+      { clef: 'treble', hand: 'right' },
+      { clef: 'bass', hand: 'left' },
+    ].map(staff => {
+      const notes = hands[staff.hand];
+      const accidentals = writtenAccidentals(notes, signature, bars);
+      return {
+        ...staff,
+        notes: notes.map((note, i) => ({ ...note, duration: durations[i], accidental: accidentals[i] })),
+      };
+    });
+
+    const title = type.family === 'minor'
+      ? `${nameOf(root)} Minor Arpeggios`
+      : `${titleOf(root, type)} Arpeggios`;
+    return {
+      pattern: 'arpeggio', root, choice, type, title, chord: chordName(triad), triad, octaves, motion: 'parallel', shift,
+      top, segments, bars, up, down, signature, staves,
     };
   }
 
