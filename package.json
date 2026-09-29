@@ -1,0 +1,8 @@
+{
+  "name": "piano-scale-fingerings",
+  "private": true,
+  "description": "Piano scales on a grand staff with standard fingering for each hand.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

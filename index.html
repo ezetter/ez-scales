@@ -1,0 +1,441 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Piano Scale Fingerings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400..800&family=Instrument+Sans:wght@400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Music&text=%E2%99%AD%E2%99%AE%E2%99%AF%F0%9D%84%AA%F0%9D%84%AB&display=swap">
+<style>
+  /* Layout: a music stand. The key picker and scale choices run across the top like a console,
+     the engraved grand staff lies below on a sheet of paper, and the fingering table follows it. */
+  :root {
+    --ground: #E4E7EB;
+    --paper: #FDFDFB;
+    --ink: #16181D;
+    --staff: #6E7580;
+    --muted: #565D68;
+    --rule: #D2D7DE;
+    --ivory: #FFFFFF;
+    --ivory-ink: #16181D;
+    --ivory-lip: #C4CAD3;
+    --ebony: #1D2026;
+    --ebony-ink: #F3F4F6;
+    --ebony-lip: #050608;
+    --felt: #A3263A;
+    --felt-fill: #A3263A;
+    --felt-lip: #6E1223;
+    --felt-wash: #F9E7EA;
+    --on-felt: #FFFFFF;
+    --focus: #2459C8;
+    --shadow: rgba(24, 28, 36, 0.12);
+    --font-display: "Bodoni Moda", "Noto Music", "Bodoni 72", Didot, Georgia, serif;
+    --font-ui: "Instrument Sans", "Noto Music", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #0C0E11;
+      --paper: #15181D;
+      --ink: #E8EAEE;
+      --staff: #8A919C;
+      --muted: #A1A8B3;
+      --rule: #2A2F37;
+      --ivory: #D6DAE0;
+      --ivory-ink: #111317;
+      --ivory-lip: #8E96A1;
+      --ebony: #030405;
+      --ebony-ink: #E8EAEE;
+      --ebony-lip: #3A404A;
+      --felt: #EE7D90;
+      --felt-fill: #B8354C;
+      --felt-lip: #6A1424;
+      --felt-wash: #3A1B22;
+      --on-felt: #FFFFFF;
+      --focus: #8DB0FF;
+      --shadow: rgba(0, 0, 0, 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #0C0E11;
+    --paper: #15181D;
+    --ink: #E8EAEE;
+    --staff: #8A919C;
+    --muted: #A1A8B3;
+    --rule: #2A2F37;
+    --ivory: #D6DAE0;
+    --ivory-ink: #111317;
+    --ivory-lip: #8E96A1;
+    --ebony: #030405;
+    --ebony-ink: #E8EAEE;
+    --ebony-lip: #3A404A;
+    --felt: #EE7D90;
+    --felt-fill: #B8354C;
+    --felt-lip: #6A1424;
+    --felt-wash: #3A1B22;
+    --on-felt: #FFFFFF;
+    --focus: #8DB0FF;
+    --shadow: rgba(0, 0, 0, 0.45);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    padding-inline: 16px;
+    padding-block: 28px 56px;
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 16px/1.5 var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (min-width: 720px) {
+    body { padding-inline: 32px; }
+  }
+  table { font: inherit; color: inherit; }
+
+  /* Sharps and flats from the music font, raised and enlarged a little to sit beside the letter
+     as they do in printed music. */
+  .acc {
+    position: relative;
+    top: -0.12em;
+    margin-left: 0.02em;
+    font-family: "Noto Music", var(--font-ui);
+    font-size: 1.12em;
+    line-height: 0;
+  }
+
+  .page {
+    max-width: 1280px;
+    margin-inline: auto;
+    display: grid;
+    gap: 26px;
+  }
+
+  .masthead { display: grid; gap: 6px; }
+  .masthead h1 {
+    margin: 0;
+    font: 700 clamp(28px, 3.4vw, 38px)/1.1 var(--font-display);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  .masthead p {
+    margin: 0;
+    max-width: 64ch;
+    color: var(--muted);
+  }
+
+  .label {
+    display: block;
+    margin: 0 0 8px;
+    padding: 0;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Scale settings */
+  .console { display: grid; gap: 20px; }
+  .console fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .console-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 36px;
+    align-items: start;
+  }
+
+  /* A radio button drawn as its label: the input stays in the tab order but out of sight. */
+  .pick { position: relative; display: block; }
+  .pick input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .pick > span { display: block; cursor: pointer; user-select: none; }
+  .pick > input:focus-visible + span {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+
+  /* Root picker: each tonic styled as the piano key it's played on. */
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(13, minmax(0, 58px));
+    gap: 6px;
+  }
+  @media (max-width: 620px) {
+    .keys { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  }
+  /* The name sits near the front edge of the key, where a finger would land. */
+  .key > span {
+    height: 58px;
+    padding: 30px 0 11px;
+    text-align: center;
+    white-space: nowrap;
+    border: 1px solid var(--ivory-lip);
+    border-top-width: 0;
+    border-radius: 0 0 6px 6px;
+    background: var(--ivory);
+    color: var(--ivory-ink);
+    box-shadow: inset 0 -5px 0 var(--ivory-lip);
+    font: 600 17px/17px var(--font-ui);
+    transition: transform 90ms ease, box-shadow 90ms ease, background-color 120ms ease;
+  }
+  .key.is-black > span {
+    background: var(--ebony);
+    color: var(--ebony-ink);
+    border-color: var(--ebony-lip);
+    box-shadow: inset 0 -5px 0 var(--ebony-lip);
+  }
+  .key > span:hover { box-shadow: inset 0 -3px 0 var(--ivory-lip); transform: translateY(1px); }
+  .key.is-black > span:hover { box-shadow: inset 0 -3px 0 var(--ebony-lip); }
+  .key > input:checked + span {
+    background: var(--felt-fill);
+    color: var(--on-felt);
+    border-color: var(--felt-lip);
+    box-shadow: inset 0 -2px 0 var(--felt-lip);
+    transform: translateY(3px);
+  }
+
+  .choices { display: flex; flex-wrap: wrap; gap: 6px; }
+  .choice > span {
+    padding: 7px 14px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 500 15px/20px var(--font-ui);
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .choice > span:hover { border-color: var(--staff); }
+  .choice > input:checked + span {
+    background: var(--felt-fill);
+    border-color: var(--felt-fill);
+    color: var(--on-felt);
+  }
+
+  /* The sheet */
+  .sheet {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+    padding: 24px 18px 28px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    box-shadow: 0 1px 0 var(--shadow), 0 22px 44px -28px var(--shadow);
+  }
+  @media (min-width: 720px) {
+    .sheet { padding: 30px 34px 34px; }
+  }
+  .sheet-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 14px 40px;
+  }
+  .sheet-title {
+    margin: 0;
+    font: 600 clamp(34px, 4.6vw, 50px)/1.05 var(--font-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  .sheet-sub { margin: 6px 0 0; color: var(--muted); }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 32px;
+    margin: 0;
+  }
+  .facts div { display: grid; gap: 2px; min-width: 0; }
+  .facts dt {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .facts dd { margin: 0; font-weight: 500; }
+
+  .score {
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .score svg { display: block; }
+  .score .finger {
+    font: 700 16px/1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    fill: var(--ink);
+  }
+  .score .finger.is-crossing { fill: var(--felt); }
+  .score .crossing-ring {
+    fill: var(--felt-wash);
+    stroke: var(--felt);
+    stroke-width: 1.4;
+  }
+  .score .hand-label {
+    font: 600 11px/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    fill: var(--muted);
+  }
+  .score-error {
+    margin: 0;
+    padding: 18px;
+    border: 1px dashed var(--rule);
+    border-radius: 4px;
+    color: var(--muted);
+  }
+  .scroll-hint { margin: -10px 0 0; font-size: 14px; color: var(--muted); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 28px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .legend p { margin: 0; display: flex; align-items: center; gap: 8px; }
+
+  /* A circled finger number, in the table and the legend. */
+  .ring {
+    display: inline-grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1.4px solid var(--felt);
+    border-radius: 50%;
+    background: var(--felt-wash);
+    color: var(--felt);
+  }
+  .legend .ring { font: 700 13px/1 var(--font-ui); }
+
+  .glance { display: grid; gap: 18px; padding-top: 4px; border-top: 1px solid var(--rule); }
+  .glance-scroll { min-width: 0; overflow-x: auto; }
+  .glance table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .glance caption {
+    padding: 14px 0 8px;
+    text-align: left;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .glance th[scope="row"] {
+    padding: 4px 18px 4px 0;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .glance td {
+    min-width: 38px;
+    height: 36px;
+    padding: 0 2px;
+    text-align: center;
+  }
+  .glance .notes td {
+    border-block: 1px solid var(--rule);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .glance .hand td { font: 700 16px/1 var(--font-ui); }
+  .glance .hand td span { display: inline-grid; place-items: center; width: 24px; height: 24px; }
+  .glance-note { margin: 0; font-size: 14px; color: var(--muted); }
+
+  .about { max-width: 70ch; display: grid; gap: 8px; color: var(--muted); }
+  .about h2 {
+    margin: 0;
+    font: 600 22px/1.2 var(--font-display);
+    color: var(--ink);
+  }
+  .about p { margin: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .key > span, .choice > span { transition: none; }
+  }
+</style>
+
+<main class="page">
+  <header class="masthead">
+    <h1>Piano Scale Fingerings</h1>
+    <p>Choose a root and a scale to see it on the grand staff, ascending and descending, with the standard fingering for each hand.</p>
+  </header>
+
+  <form class="console" id="controls" aria-label="Scale settings">
+    <fieldset>
+      <legend class="label">Root</legend>
+      <div class="keys" id="roots"></div>
+    </fieldset>
+    <div class="console-row">
+      <fieldset>
+        <legend class="label">Scale</legend>
+        <div class="choices">
+          <label class="pick choice"><input type="radio" name="family" id="family-major" value="major"><span>Major</span></label>
+          <label class="pick choice"><input type="radio" name="family" id="family-minor" value="minor"><span>Minor</span></label>
+        </div>
+      </fieldset>
+      <fieldset id="mode-field">
+        <legend class="label">Mode</legend>
+        <div class="choices" id="modes"></div>
+      </fieldset>
+      <fieldset id="form-field" hidden>
+        <legend class="label">Minor form</legend>
+        <div class="choices" id="forms"></div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Octaves</legend>
+        <div class="choices">
+          <label class="pick choice"><input type="radio" name="octaves" id="octaves-1" value="1"><span>1</span></label>
+          <label class="pick choice"><input type="radio" name="octaves" id="octaves-2" value="2"><span>2</span></label>
+        </div>
+      </fieldset>
+    </div>
+  </form>
+
+  <section class="sheet" aria-labelledby="scale-title">
+    <div class="sheet-head">
+      <div>
+        <h2 class="sheet-title" id="scale-title">C Major</h2>
+        <p class="sheet-sub" id="scale-sub">One octave, ascending and descending</p>
+      </div>
+      <dl class="facts" id="facts"></dl>
+    </div>
+    <div class="score" id="score" role="img"></div>
+    <p class="scroll-hint" id="scroll-hint" hidden>Scroll sideways to see the whole scale.</p>
+    <div class="legend">
+      <p>Right-hand fingers are above the treble staff, left-hand fingers below the bass staff.</p>
+      <p><span class="ring" aria-hidden="true">1</span> The thumb passes under, or a finger crosses over it.</p>
+    </div>
+    <div class="glance" id="glance"></div>
+  </section>
+
+  <section class="about" aria-labelledby="about-title">
+    <h2 id="about-title">About the fingering</h2>
+    <p>Major and minor scales use the standard fingerings taught in piano scale books. Modes have no single standard, so they follow the same rules: the thumb plays only white keys, it passes under just after a black key wherever it can, and a scale that starts on a white key starts on the thumb in the right hand and ends on it in the left.</p>
+    <p>Melodic minor raises its 6th and 7th going up and comes back down as natural minor. In F<span class="acc">♯</span> and C<span class="acc">♯</span> minor that moves the right hand’s thumb, so those two scales change fingering on the way down.</p>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.5/build/cjs/vexflow.js"></script>
+<script src="js/theory.js"></script>
+<script src="js/app.js"></script>
