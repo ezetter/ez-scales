@@ -202,10 +202,10 @@ test('every scale is playable: thumbs on white keys, crossings through the thumb
     const minor = MINOR_FORMS.includes(kind);
     const choice = { family: minor ? 'minor' : 'major', mode: kind, form: kind };
     for (const root of T.rootsFor(choice)) {
-      for (const octaves of [1, 2]) {
-        const s = T.buildScale({ ...choice, root, octaves });
+      for (const [octaves, motion] of [[1, 'parallel'], [2, 'parallel'], [1, 'contrary'], [2, 'contrary']]) {
+        const s = T.buildScale({ ...choice, root, octaves, motion });
         for (const { hand, notes } of s.staves) {
-          const where = `${s.title}, ${octaves} octave(s), ${hand} hand`;
+          const where = `${s.title}, ${octaves} octave(s) ${motion}, ${hand} hand`;
           assert.equal(notes.length, 14 * octaves + 1, where);
           notes.forEach((note, i) => {
             assert.ok(note.finger >= 1 && note.finger <= 5, `${where}: finger ${note.finger}`);
@@ -227,6 +227,35 @@ test('crossings mark where the thumb passes under or a finger crosses over', () 
     .map((n, i) => (n.crossing ? `${n.name}${i}` : null)).filter(Boolean);
   assert.deepEqual(marked('right'), ['F3', 'E12']);
   assert.deepEqual(marked('left'), ['A5', 'G10']);
+});
+
+test('contrary motion starts in unison and keeps each hand on its usual fingering', () => {
+  const contrary = (id, kind, octaves = 1) => {
+    const minor = MINOR_FORMS.includes(kind);
+    return T.buildScale({
+      root: T.parseId(id), family: minor ? 'minor' : 'major', mode: kind, form: kind, octaves, motion: 'contrary',
+    });
+  };
+  const run = (s, hand) => staff(s, hand).notes.map(n => `${n.name}${n.octave}:${n.finger}`).join(' ');
+  const c = contrary('C', 'ionian');
+  assert.equal(c.motion, 'contrary');
+  assert.equal(run(c, 'right'), 'C4:1 D4:2 E4:3 F4:1 G4:2 A4:3 B4:4 C5:5 B4:4 A4:3 G4:2 F4:1 E4:3 D4:2 C4:1');
+  assert.equal(run(c, 'left'), 'C4:1 B3:2 A3:3 G3:1 F3:2 E3:3 D3:4 C3:5 D3:4 E3:3 F3:2 G3:1 A3:3 B3:2 C4:1');
+  // Melodic minor's raised notes go with whichever hand is going up.
+  const a = contrary('A', 'melodic');
+  assert.deepEqual(names(staff(a, 'left').notes), ['A', 'G', 'F', 'E', 'D', 'C', 'B', 'A', 'B', 'C', 'D', 'E', 'F♯', 'G♯', 'A']);
+  // Every key other than the tonic gets the same left-hand finger as in parallel motion, and
+  // both hands start on the same note.
+  for (const [id, kind] of [['Bb', 'ionian'], ['Fs', 'melodic'], ['Gs', 'harmonic'], ['Eb', 'dorian']]) {
+    for (const octaves of [1, 2]) {
+      const apart = contrary(id, kind, octaves);
+      const tonic = T.pitchClass(apart.root);
+      const inner = s => staff(s, 'left').notes.filter(n => T.pitchClass(n) !== tonic);
+      const together = new Map(inner(scale(id, kind, octaves)).map(n => [n.name, n.finger]));
+      for (const note of inner(apart)) assert.equal(note.finger, together.get(note.name), `${apart.title}, ${note.name}`);
+      assert.equal(staff(apart, 'right').notes[0].midi, staff(apart, 'left').notes[0].midi, `${apart.title} starts in unison`);
+    }
+  }
 });
 
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {

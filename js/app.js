@@ -8,7 +8,7 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, order: 'alphabetical' };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical' };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
@@ -42,6 +42,7 @@
       if (T.MODES.some(m => m.id === saved.mode)) settings.mode = saved.mode;
       if (T.MINOR_FORMS.some(f => f.id === saved.form)) settings.form = saved.form;
       if (saved.octaves === 1 || saved.octaves === 2) settings.octaves = saved.octaves;
+      if (saved.motion === 'parallel' || saved.motion === 'contrary') settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
@@ -91,7 +92,7 @@
 
   function syncControls() {
     renderRoots();
-    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), order: state.order };
+    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order };
     for (const [name, value] of Object.entries(values)) {
       const input = settingsEl.querySelector(`input[name="${name}"][value="${value}"]`);
       if (input) input.checked = true;
@@ -106,6 +107,8 @@
       state.root = value;
     } else if (name === 'octaves') {
       state.octaves = Number(value);
+    } else if (name === 'motion') {
+      state.motion = value;
     } else if (name === 'order') {
       state.order = value;
     } else if (name === 'family' || name === 'mode' || name === 'form') {
@@ -128,7 +131,10 @@
   function renderHeading(scale) {
     const rootName = T.nameOf(scale.root);
     $('scale-title').innerHTML = nameHTML(scale.root) + escapeHTML(scale.title.slice(rootName.length));
-    $('scale-sub').textContent = `${scale.octaves === 1 ? 'One octave' : 'Two octaves'}, ascending and descending`;
+    const span = scale.octaves === 1 ? 'One octave' : 'Two octaves';
+    $('scale-sub').textContent = scale.motion === 'contrary'
+      ? `${span} in contrary motion, hands starting together on the tonic`
+      : `${span}, ascending and descending`;
     const parent = `${nameHTML(scale.signature.major)} major`;
     const facts = [['Key signature', signatureHTML(scale.signature)]];
     if (scale.type.family === 'major') {
@@ -231,7 +237,8 @@
     const rootName = T.nameOf(scale.root);
     const name = T.spokenName(scale.root) + scale.title.slice(rootName.length);
     const signature = scale.signature.count ? plural(scale.signature.count, scale.signature.kind) : 'no sharps or flats';
-    return `Grand staff: ${name}, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} up and down, ` +
+    const motion = scale.motion === 'contrary' ? 'in contrary motion, out and back' : 'up and down';
+    return `Grand staff: ${name}, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} ${motion}, ` +
       `with ${signature} in the key signature, in 4/4 time as eighth notes. The table below lists each note's finger.`;
   }
 
@@ -362,23 +369,31 @@
     const [right, left] = scale.staves;
     const range = [];
     for (let i = from; i <= to; i++) range.push(i);
-    // A crossing belongs to the move into its note, so the descending table's first note (the
-    // top, reached going up) never shows one.
+    // A crossing belongs to the move into its note, so the second table's first note (the turning
+    // point, reached in the first half) never shows one.
     const finger = (note, i) => (note.crossing && !(from === scale.top && i === from)
       ? `<td><span class="ring" title="Crossing">${note.finger}</span></td>`
       : `<td><span>${note.finger}</span></td>`);
+    const fingers = (label, part) => `<tr class="hand"><th scope="row">${label}</th>${range.map(i => finger(part.notes[i], i)).join('')}</tr>`;
+    const notes = (label, part) => `<tr class="notes"><th scope="row">${label}</th>${range.map(i => `<td>${nameHTML(part.notes[i])}</td>`).join('')}</tr>`;
+    // In parallel motion the hands play the same notes; in contrary motion each gets its own row.
+    const sameNotes = range.every(i => right.notes[i].name === left.notes[i].name);
+    const middle = sameNotes ? notes('Note', right) : notes('Right-hand notes', right) + notes('Left-hand notes', left);
     return `<div class="glance-scroll"><table><caption>${caption}</caption><tbody>` +
-      `<tr class="hand"><th scope="row">Right hand</th>${range.map(i => finger(right.notes[i], i)).join('')}</tr>` +
-      `<tr class="notes"><th scope="row">Note</th>${range.map(i => `<td>${nameHTML(right.notes[i])}</td>`).join('')}</tr>` +
-      `<tr class="hand"><th scope="row">Left hand</th>${range.map(i => finger(left.notes[i], i)).join('')}</tr>` +
+      fingers('Right hand', right) + middle + fingers('Left hand', left) +
       '</tbody></table></div>';
   }
 
   function renderGlance(scale) {
-    const up = glanceTable('Ascending', scale, 0, scale.top);
+    const contrary = scale.motion === 'contrary';
+    const [outward, back] = contrary ? ['Hands moving apart', 'Hands coming back together'] : ['Ascending', 'Descending'];
+    const first = glanceTable(outward, scale, 0, scale.top);
+    const note = contrary
+      ? 'Coming back together, each note keeps the finger it had going out.'
+      : 'Descending, each note keeps the finger it had going up.';
     $('glance').innerHTML = mirrored(scale)
-      ? `${up}<p class="glance-note">Descending, each note keeps the finger it had going up.</p>`
-      : up + glanceTable('Descending', scale, scale.top, 2 * scale.top);
+      ? `${first}<p class="glance-note">${note}</p>`
+      : first + glanceTable(back, scale, scale.top, 2 * scale.top);
   }
 
   function update() {
