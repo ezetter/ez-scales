@@ -199,27 +199,30 @@
     return [Math.max(above, below), above + below];
   }
 
-  // The octave of each hand's starting tonic: whatever needs the fewest ledger lines on that
-  // hand's staff. Between equally tidy choices the right hand goes higher and the left hand lower,
-  // so the extra ledger lines stay outside the system and the space between the staves is clear.
+  // Parallel motion keeps the hands exactly an octave apart. The right hand's tonic goes where it
+  // needs the fewest ledger lines on the treble staff; between equally tidy choices, whichever
+  // suits the left hand an octave below better, then the higher. Returns each hand's lowest staff
+  // position.
   function placeHands(root, octaves) {
     const span = 7 * octaves;
-    const tidiest = (staff, higher) => {
-      let best = null;
-      for (let octave = 1; octave <= 6; octave++) {
-        const low = octave * 7 + root.letter;
-        const key = [...ledgerCost(low, low + span, STAVES[staff]), higher ? -octave : octave];
-        if (!best || compare(key, best.key) < 0) best = { octave, key };
-      }
-      return best.octave;
-    };
-    return { right: tidiest('treble', true), left: tidiest('bass', false) };
+    let best = null;
+    for (let octave = 2; octave <= 6; octave++) {
+      const right = octave * 7 + root.letter;
+      const left = right - 7;
+      const key = [
+        ...ledgerCost(right, right + span, STAVES.treble),
+        ...ledgerCost(left, left + span, STAVES.bass),
+        -octave,
+      ];
+      if (!best || compare(key, best.key) < 0) best = { right, left, key };
+    }
+    return { right: best.right, left: best.left };
   }
 
-  // Thirds and sixths keep the hands exactly that interval apart, so they're placed together:
-  // the left hand's first note, and the right hand's the interval above it, at whichever octave
-  // needs the fewest ledger lines on the two staves, nearest middle C on a tie. `from` is the
-  // scale degree each hand starts on. Returns each hand's lowest staff position.
+  // Thirds keep the hands exactly a third apart, so they're placed together: the left hand's first
+  // note, and the right hand's a third above it, at whichever octave needs the fewest ledger lines
+  // on the two staves, nearest middle C on a tie. `from` is the scale degree each hand starts on.
+  // Returns each hand's lowest staff position.
   function placeInterval(root, octaves, from) {
     const span = 7 * octaves;
     const gap = mod(from.right - from.left, 7);
@@ -435,8 +438,7 @@
       const start = placeUnison(root, octaves) * 7 + root.letter;
       lows = { right: start, left: start - span };
     } else if (motion.id === 'parallel') {
-      const placement = placeHands(root, octaves);
-      lows = { right: placement.right * 7 + root.letter, left: placement.left * 7 + root.letter };
+      lows = placeHands(root, octaves);
     } else if (motion.id === 'sixths') {
       // The right hand starts on the tonic nearest middle C (the lower one when it's a tritone
       // either way), the left hand a sixth below: E3 and C4 in C major, B2 and G3 in G, F♯3 and

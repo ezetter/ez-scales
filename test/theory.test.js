@@ -310,8 +310,11 @@ test('a staff changes clef only for notes too far off it, once out and once back
     'E3b F3b G3b A3b B3t C4t D4t E4t D4t C4t B3b A3b G3b F3b E3b');
   // Two ledger lines are fine: one octave of sixths stays in each hand's own clef.
   assert.ok(staff(inMotion('sixths'), 'left').notes.every(n => n.clef === 'bass'));
-  assert.ok(staff(inMotion('parallel', 2), 'right').notes.every(n => n.clef === 'treble'));
-  assert.ok(staff(inMotion('parallel', 2), 'left').notes.every(n => n.clef === 'bass'));
+  assert.ok(staff(inMotion('parallel'), 'right').notes.every(n => n.clef === 'treble'));
+  assert.ok(staff(inMotion('parallel'), 'left').notes.every(n => n.clef === 'bass'));
+  // Two octaves of C major an octave apart: the left hand climbs to C5, so it spends the twelve
+  // notes around the top in treble.
+  assert.equal(staff(inMotion('parallel', 2), 'left').notes.filter(n => n.clef === 'treble').length, 12);
   // Two octaves of sixths in C, G, D and A: the right hand stays in treble throughout, and the
   // left hand is in treble for the twelve notes around the top, from the start of bar 2 up and
   // back to the same pitch.
@@ -392,19 +395,29 @@ test('accidentals follow the key signature, the bar line, and courtesy naturals'
   assert.deepEqual(written('C', 'ionian'), []);
 });
 
-test('each hand sits on its staff with as few ledger lines as possible, extras outside the system', () => {
+test('in parallel motion the hands are exactly an octave apart', () => {
   const octaves = (id, n = 1) => {
     const s = scale(id, 'ionian', n);
     return [staff(s, 'right').notes[0].octave, staff(s, 'left').notes[0].octave];
   };
   assert.deepEqual(octaves('C'), [4, 3]);
-  assert.deepEqual(octaves('D'), [4, 2]);
-  assert.deepEqual(octaves('E'), [4, 2]);
-  assert.deepEqual(octaves('A'), [4, 2]);
-  assert.deepEqual(octaves('B'), [4, 2]);
-  assert.deepEqual(octaves('C', 2), [4, 2]);
-  assert.deepEqual(octaves('E', 2), [4, 2]);
-  assert.deepEqual(octaves('G', 2), [3, 1]);
+  assert.deepEqual(octaves('D'), [4, 3]);
+  assert.deepEqual(octaves('E'), [4, 3]);
+  assert.deepEqual(octaves('A'), [4, 3]);
+  // B4 or B3 need the same ledger lines on the treble staff; B3 keeps the left hand on its staff.
+  assert.deepEqual(octaves('B'), [3, 2]);
+  assert.deepEqual(octaves('C', 2), [4, 3]);
+  assert.deepEqual(octaves('G', 2), [3, 2]);
+  for (const kind of ['ionian', 'dorian', 'harmonic', 'melodic']) {
+    for (const root of ['C', 'Eb', 'Fs', 'Ab', 'B']) {
+      for (const n of [1, 2]) {
+        const s = scale(root, kind, n);
+        staff(s, 'right').notes.forEach((note, i) => {
+          assert.equal(note.midi - staff(s, 'left').notes[i].midi, 12, `${s.title}, ${n} octave(s), note ${i}`);
+        });
+      }
+    }
+  }
 });
 
 test('note ids round-trip', () => {
