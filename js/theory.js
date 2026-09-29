@@ -289,9 +289,9 @@
   }
 
   // How the hands move. In thirds, the left hand starts on the tonic and the right hand exactly a
-  // third higher on the 3rd degree; in sixths, the right hand starts on the tonic in middle C's
-  // octave and the left hand exactly a sixth lower on the 3rd degree. Both hands play the scale of
-  // the key either way.
+  // third higher on the 3rd degree; in sixths, the right hand starts on the tonic nearest middle C
+  // and the left hand exactly a sixth lower on the 3rd degree. Both hands play the scale of the key
+  // either way.
   const MOTIONS = [
     { id: 'parallel', name: 'Parallel', from: { right: 0, left: 0 } },
     { id: 'thirds', name: 'Parallel in thirds', from: { right: 2, left: 0 } },
@@ -391,9 +391,12 @@
       const placement = placeHands(root, octaves);
       lows = { right: placement.right * 7 + root.letter, left: placement.left * 7 + root.letter };
     } else if (motion.id === 'sixths') {
-      // The right hand starts on the tonic in middle C's octave, the left hand a sixth below:
-      // E3 and C4 in C major, B3 and G4 in G.
-      const right = 4 * 7 + root.letter;
+      // The right hand starts on the tonic nearest middle C (the upper one when it's a tritone
+      // either way), the left hand a sixth below: E3 and C4 in C major, B2 and G3 in G, F♯3 and
+      // D4 in D.
+      const distance = octave => Math.abs(placeNote(octave * 7 + root.letter, root).midi - 60);
+      const octave = distance(3) < distance(4) ? 3 : 4;
+      const right = octave * 7 + root.letter;
       lows = { right, left: right - 5 };
     } else {
       lows = placeInterval(root, octaves, motion.from);
