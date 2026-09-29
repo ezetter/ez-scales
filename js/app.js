@@ -357,11 +357,21 @@
       }
       connect(last ? 'boldDoubleRight' : 'singleRight');
 
-      // A small clef goes just before any note that changes clef.
+      // A small clef goes just before any note that changes clef. The other staff gets an unseen
+      // clef at the same point, so both staves take the same room there and their notes stay
+      // lined up; without it VexFlow shifts only the staff with the clef.
       const voices = staveNotes.map((built, p) => {
         const tickables = [];
         for (let i = from; i <= to; i++) {
-          if (clefChanges(scale.staves[p], i)) tickables.push(new VF.ClefNote(scale.staves[p].notes[i].clef, 'small'));
+          if (scale.staves.some(part => clefChanges(part, i))) {
+            const clefNote = new VF.ClefNote(scale.staves[p].notes[i].clef, 'small');
+            if (!clefChanges(scale.staves[p], i)) {
+              clefNote.draw = function drawNothing() {
+                this.setRendered();
+              };
+            }
+            tickables.push(clefNote);
+          }
           tickables.push(built[i]);
         }
         return new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(tickables).setStave(staves[p]);
