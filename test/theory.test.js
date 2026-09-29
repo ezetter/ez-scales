@@ -298,20 +298,34 @@ test('in thirds and sixths the hands start on different degrees and keep the key
   }
 });
 
-test('a note moves to the other clef rather than use ledger lines it can do without', () => {
+test('a staff changes clef only for notes too far off it, once out and once back', () => {
   const clefs = (s, hand) => staff(s, hand).notes.map(n => `${n.name}${n.octave}${n.clef === 'treble' ? 't' : 'b'}`).join(' ');
-  const inMotion = (motion, octaves = 1) => T.buildScale({
-    root: T.parseId('C'), family: 'major', mode: 'ionian', octaves, motion,
+  const inMotion = (motion, octaves = 1, id = 'C') => T.buildScale({
+    root: T.parseId(id), family: 'major', mode: 'ionian', octaves, motion,
   });
-  // The right hand in thirds starts in the bass clef, takes middle C there rather than switch
-  // for one note, and goes to treble for D4, which the bass clef would need a ledger line for.
+  // The right hand in thirds starts on E3, three ledger lines below the treble staff, so it
+  // starts in bass clef, goes to treble at the next beam group, and returns to bass at the same
+  // pitch (B3) on the way down.
   assert.equal(clefs(inMotion('thirds'), 'right'),
-    'E3b F3b G3b A3b B3b C4b D4t E4t D4t C4t B3b A3b G3b F3b E3b');
-  assert.equal(clefs(inMotion('sixths'), 'left'),
-    'E3b F3b G3b A3b B3b C4b D4t E4t D4t C4t B3b A3b G3b F3b E3b');
-  // Notes that need ledger lines in either clef stay put.
+    'E3b F3b G3b A3b B3t C4t D4t E4t D4t C4t B3b A3b G3b F3b E3b');
+  // Two ledger lines are fine: one octave of sixths stays in each hand's own clef.
+  assert.ok(staff(inMotion('sixths'), 'left').notes.every(n => n.clef === 'bass'));
   assert.ok(staff(inMotion('parallel', 2), 'right').notes.every(n => n.clef === 'treble'));
   assert.ok(staff(inMotion('parallel', 2), 'left').notes.every(n => n.clef === 'bass'));
+  // Two octaves of sixths in C, G, D and A: the right hand stays in treble throughout, and the
+  // left hand is in treble for the twelve notes around the top, from the start of bar 2 up and
+  // back to the same pitch.
+  const expected = {
+    C: 'E3b F3b G3b A3b B3b C4b D4b E4b F4t G4t A4t B4t C5t D5t E5t D5t C5t B4t A4t G4t F4b E4b D4b C4b B3b A3b G3b F3b E3b',
+    G: 'B2b C3b D3b E3b F♯3b G3b A3b B3b C4t D4t E4t F♯4t G4t A4t B4t A4t G4t F♯4t E4t D4t C4b B3b A3b G3b F♯3b E3b D3b C3b B2b',
+    D: 'F♯3b G3b A3b B3b C♯4b D4b E4b F♯4b G4t A4t B4t C♯5t D5t E5t F♯5t E5t D5t C♯5t B4t A4t G4b F♯4b E4b D4b C♯4b B3b A3b G3b F♯3b',
+    A: 'C♯3b D3b E3b F♯3b G♯3b A3b B3b C♯4b D4t E4t F♯4t G♯4t A4t B4t C♯5t B4t A4t G♯4t F♯4t E4t D4b C♯4b B3b A3b G♯3b F♯3b E3b D3b C♯3b',
+  };
+  for (const [id, left] of Object.entries(expected)) {
+    const s = inMotion('sixths', 2, id);
+    assert.ok(staff(s, 'right').notes.every(n => n.clef === 'treble'), `${s.title} right hand`);
+    assert.equal(clefs(s, 'left'), left, `${s.title} left hand`);
+  }
 });
 
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {

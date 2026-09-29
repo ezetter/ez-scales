@@ -135,18 +135,50 @@
   };
   const OTHER_CLEF = { treble: 'bass', bass: 'treble' };
 
-  // True when a note sits on the staff or in the space just above or below it, with no ledger line.
-  const onStaff = (step, clef) => step >= STAVES[clef].bottom - 1 && step <= STAVES[clef].top + 1;
+  // A note too far from its staff for ledger lines: three or more ledger lines away, on the side
+  // where the other clef does better (E3 and below under the treble staff, A4 and up over the bass).
+  function tooFar(step, home) {
+    return home === 'treble' ? step <= STAVES.treble.bottom - 7 : step >= STAVES.bass.top + 7;
+  }
 
-  // The clef each note is written in. A staff starts in its own clef and switches only when a note
-  // would need ledger lines but fits on the other clef's staff without any. Notes that need ledger
-  // lines either way, like middle C, stay in the clef already in use, so the clef doesn't flicker.
-  function clefsFor(notes, home) {
-    let clef = home;
-    return notes.map(({ step }) => {
-      if (!onStaff(step, clef) && onStaff(step, OTHER_CLEF[clef])) clef = OTHER_CLEF[clef];
-      return clef;
-    });
+  // Beam groups start every four eighths, so a clef change lands at the start of one.
+  const GROUP = 4;
+  // A stretch in the other clef around the top of the run lasts at least this many notes.
+  const SHORTEST_EXCURSION = 12;
+
+  // The clef each note is written in. A staff stays in its own clef, with ledger lines, unless
+  // notes are too far off it. Then it changes clef once going out and once coming back, both at
+  // the same pitch (the note is written in the other clef going out, and in its own clef coming
+  // back), with the outward change at the start of a beam group. Runs go out and back
+  // symmetrically around `top`, so the stretch is either around the top of the run (the left hand
+  // climbing into the treble) or at both ends (the right hand starting low).
+  function clefsFor(notes, home, top) {
+    const last = notes.length - 1;
+    const far = notes.map(({ step }) => tooFar(step, home));
+    const away = new Array(notes.length).fill(false);
+    const farIndexes = far.flatMap((isFar, i) => (isFar ? [i] : []));
+    if (farIndexes.length && far[top]) {
+      // Around the top: from s up to the matching pitch coming back.
+      const lastFar = Math.max(...farIndexes);
+      let s = Math.floor(farIndexes[0] / GROUP) * GROUP;
+      while (s > 0 && last - s <= lastFar) s -= GROUP;
+      while (last - 2 * s < SHORTEST_EXCURSION && s >= 2 * GROUP) s -= GROUP;
+      for (let i = s; i < last - s; i++) away[i] = true;
+    } else if (farIndexes.length && far[0]) {
+      // At both ends: from the start until the first beam group clear of the far notes, and from
+      // the matching pitch on the way back to the end.
+      const lastOnWayOut = Math.max(...farIndexes.filter(i => i <= top));
+      const back = Math.min(top, (Math.floor(lastOnWayOut / GROUP) + 1) * GROUP);
+      for (let i = 0; i < back; i++) away[i] = true;
+      for (let i = last - back; i <= last; i++) away[i] = true;
+    } else {
+      // Anything else: each beam group with a far note goes in the other clef.
+      farIndexes.forEach(i => {
+        const start = Math.floor(i / GROUP) * GROUP;
+        for (let j = start; j < Math.min(start + GROUP, notes.length); j++) away[j] = true;
+      });
+    }
+    return away.map(isAway => (isAway ? OTHER_CLEF[home] : home));
   }
 
   // [ledger lines on the busier side, ledger lines in all] to write steps low..high on a staff.
@@ -413,7 +445,7 @@
       const fingers = fingerPath(path, blackKeys(up), blackKeys(down), staff.hand, top, preferred);
       const crossed = crossings(notes, fingers, staff.hand);
       const accidentals = writtenAccidentals(notes, signature, bars);
-      const clefs = clefsFor(notes, staff.clef);
+      const clefs = clefsFor(notes, staff.clef, top);
       return {
         ...staff,
         notes: notes.map((note, i) => ({
