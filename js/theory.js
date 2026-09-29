@@ -141,6 +141,14 @@
     return home === 'treble' ? step <= STAVES.treble.bottom - 7 : step >= STAVES.bass.top + 7;
   }
 
+  // Clef changes set by hand where the rule below doesn't give the engraving we want, keyed by
+  // motion, mode or minor form, root, octaves and hand: the [first, last] note index written in
+  // the other clef. Two octaves of G♭ major in sixths keep the left hand in treble for just the
+  // four notes at the top, although G major, on the same lines and spaces, takes twelve.
+  const CLEF_EXCEPTIONS = {
+    'sixths ionian Gb 2 left': [12, 15],
+  };
+
   // Beam groups start every four eighths, so a clef change lands at the start of one.
   const GROUP = 4;
   // A stretch in the other clef around the top of the run lasts at least this many notes.
@@ -152,12 +160,15 @@
   // back), with the outward change at the start of a beam group. Runs go out and back
   // symmetrically around `top`, so the stretch is either around the top of the run (the left hand
   // climbing into the treble) or at both ends (the right hand starting low).
-  function clefsFor(notes, home, top) {
+  // `exception`, when given, is the [first, last] note index to write in the other clef instead.
+  function clefsFor(notes, home, top, exception) {
     const last = notes.length - 1;
     const far = notes.map(({ step }) => tooFar(step, home));
     const away = new Array(notes.length).fill(false);
     const farIndexes = far.flatMap((isFar, i) => (isFar ? [i] : []));
-    if (farIndexes.length && far[top]) {
+    if (exception) {
+      for (let i = exception[0]; i <= exception[1]; i++) away[i] = true;
+    } else if (farIndexes.length && far[top]) {
       // Around the top: from s up to the matching pitch coming back.
       const lastFar = Math.max(...farIndexes);
       let s = Math.floor(farIndexes[0] / GROUP) * GROUP;
@@ -423,11 +434,11 @@
       const placement = placeHands(root, octaves);
       lows = { right: placement.right * 7 + root.letter, left: placement.left * 7 + root.letter };
     } else if (motion.id === 'sixths') {
-      // The right hand starts on the tonic nearest middle C (the upper one when it's a tritone
+      // The right hand starts on the tonic nearest middle C (the lower one when it's a tritone
       // either way), the left hand a sixth below: E3 and C4 in C major, B2 and G3 in G, F♯3 and
-      // D4 in D.
+      // D4 in D, B♭2 and G♭3 in G♭.
       const distance = octave => Math.abs(placeNote(octave * 7 + root.letter, root).midi - 60);
-      const octave = distance(3) < distance(4) ? 3 : 4;
+      const octave = distance(3) <= distance(4) ? 3 : 4;
       const right = octave * 7 + root.letter;
       lows = { right, left: right - 5 };
     } else {
@@ -445,7 +456,9 @@
       const fingers = fingerPath(path, blackKeys(up), blackKeys(down), staff.hand, top, preferred);
       const crossed = crossings(notes, fingers, staff.hand);
       const accidentals = writtenAccidentals(notes, signature, bars);
-      const clefs = clefsFor(notes, staff.clef, top);
+      const variety = type.family === 'minor' ? type.form.id : type.mode.id;
+      const exception = CLEF_EXCEPTIONS[`${motion.id} ${variety} ${idOf(root)} ${octaves} ${staff.hand}`];
+      const clefs = clefsFor(notes, staff.clef, top, exception);
       return {
         ...staff,
         notes: notes.map((note, i) => ({

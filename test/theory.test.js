@@ -277,10 +277,10 @@ test('in thirds and sixths the hands start on different degrees and keep the key
   assert.deepEqual([starts(thirds, 'left'), starts(thirds, 'right')], ['C3', 'E3']);
   assert.deepEqual([starts(sixths, 'left'), starts(sixths, 'right')], ['E3', 'C4']);
   // Sixths always start with the right hand on the tonic nearest middle C, whatever the number
-  // of octaves; F♯ is a tritone either way and takes the upper one.
+  // of octaves; F♯ and G♭ are a tritone either way and take the lower one.
   for (const [id, left, right] of [
     ['C', 'E3', 'C4'], ['G', 'B2', 'G3'], ['A', 'C♯3', 'A3'], ['D', 'F♯3', 'D4'],
-    ['F', 'A3', 'F4'], ['B', 'D♯3', 'B3'], ['Eb', 'G3', 'E♭4'], ['Fs', 'A♯3', 'F♯4'],
+    ['F', 'A3', 'F4'], ['B', 'D♯3', 'B3'], ['Eb', 'G3', 'E♭4'], ['Fs', 'A♯2', 'F♯3'], ['Gb', 'B♭2', 'G♭3'],
   ]) {
     for (const octaves of [1, 2]) {
       const s = inMotion(id, 'sixths', octaves);
@@ -326,6 +326,12 @@ test('a staff changes clef only for notes too far off it, once out and once back
     assert.ok(staff(s, 'right').notes.every(n => n.clef === 'treble'), `${s.title} right hand`);
     assert.equal(clefs(s, 'left'), left, `${s.title} left hand`);
   }
+  // G♭ is set by hand: an octave lower than the others, with the left hand in treble for only
+  // the four notes at the top.
+  const gFlat = inMotion('sixths', 2, 'Gb');
+  assert.ok(staff(gFlat, 'right').notes.every(n => n.clef === 'treble'));
+  assert.equal(clefs(gFlat, 'left'),
+    'B♭2b C♭3b D♭3b E♭3b F3b G♭3b A♭3b B♭3b C♭4b D♭4b E♭4b F4b G♭4t A♭4t B♭4t A♭4t G♭4b F4b E♭4b D♭4b C♭4b B♭3b A♭3b G♭3b F3b E♭3b D♭3b C♭3b B♭2b');
 });
 
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {
