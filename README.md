@@ -28,7 +28,7 @@ Changing the scale keeps the same key, renamed if needed: Gâ™­ major becomes Fâ™
 ### What the sheet shows
 
 - The scale's name, key signature, parent or relative major, and notes.
-- The grand staff. The first bar goes up to the top note and the second comes back down. Accidentals follow the usual rules: a sign lasts to the end of its bar, and melodic minor's naturals on the way down are written out.
+- The grand staff in 4/4: eighth notes beamed in fours, eight to a bar, with the last note held to fill the final bar (a quarter note for one octave, a half note for two). Accidentals follow the usual rules: a sign lasts to the end of its bar, and a courtesy sign reminds you when a line or space changes back in a later bar, as with melodic minor's naturals on the way down.
 - Circled numbers mark where the hand shifts: the thumb passes under, or a finger crosses over the thumb.
 - Each hand is placed on its staff with as few ledger lines as possible, so the hands may be one or two octaves apart.
 - A table of the fingering note by note, with a second table for the way down when it differs (melodic minor).

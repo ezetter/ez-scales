@@ -229,6 +229,23 @@ test('crossings mark where the thumb passes under or a finger crosses over', () 
   assert.deepEqual(marked('left'), ['A5', 'G10']);
 });
 
+test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {
+  const one = scale('C', 'ionian');
+  assert.deepEqual(one.bars, [[0, 7], [8, 14]]);
+  assert.deepEqual(staff(one, 'right').notes.map(n => n.duration), [...Array(14).fill('8'), 'q']);
+  const two = scale('C', 'ionian', 2);
+  assert.deepEqual(two.bars, [[0, 7], [8, 15], [16, 23], [24, 28]]);
+  assert.deepEqual(staff(two, 'left').notes.map(n => n.duration), [...Array(28).fill('8'), 'h']);
+  // Every bar adds up to four quarter-note beats.
+  const eighths = { 8: 1, q: 2, h: 4, hd: 6, w: 8 };
+  for (const s of [one, two]) {
+    for (const [from, to] of s.bars) {
+      const total = staff(s, 'right').notes.slice(from, to + 1).reduce((sum, n) => sum + eighths[n.duration], 0);
+      assert.equal(total, 8);
+    }
+  }
+});
+
 test('accidentals follow the key signature, the bar line, and courtesy naturals', () => {
   const written = (id, kind, octaves = 1) => staff(scale(id, kind, octaves), 'right').notes
     .map((n, i) => (n.accidental ? `${i}${n.accidental}` : null)).filter(Boolean);

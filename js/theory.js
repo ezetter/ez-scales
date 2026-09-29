@@ -232,27 +232,43 @@
     });
   }
 
-  // Which notes get a written accidental. The run is two bars, up to the top note and then down.
-  // Within a bar, a note needs one when it differs from the key signature or from an earlier
-  // accidental on its line or space. The bar line cancels those, but a note changed in the first
-  // bar gets a courtesy sign when it returns to the key signature in the second (melodic minor's
-  // naturals on the way down).
-  function writtenAccidentals(notes, signature, top) {
-    let inForce = new Map();
-    let courtesy = new Set();
-    return notes.map((note, i) => {
-      if (i === top + 1) {
-        courtesy = new Set([...inForce]
-          .filter(([step, alter]) => alter !== signature.alterations[step % 7])
-          .map(([step]) => step));
-        inForce = new Map();
+  // The run is written in 4/4 as eighth notes, eight to a bar. A run always has an odd number of
+  // notes (14 per octave plus the last tonic), so the final bar ends with a longer note that fills
+  // it: a quarter after six eighths (one octave), a half after four (two octaves).
+  const EIGHTHS_PER_BAR = 8;
+  const HELD_NOTES = { 2: 'q', 4: 'h', 6: 'hd', 8: 'w' };
+
+  // Each note's VexFlow duration, and the bars as [first, last] note indexes.
+  function rhythm(count) {
+    const durations = new Array(count).fill('8');
+    const lastBar = Math.floor((count - 1) / EIGHTHS_PER_BAR) * EIGHTHS_PER_BAR;
+    durations[count - 1] = HELD_NOTES[EIGHTHS_PER_BAR - (count - 1 - lastBar)];
+    const bars = [];
+    for (let from = 0; from < count; from += EIGHTHS_PER_BAR) {
+      bars.push([from, Math.min(from + EIGHTHS_PER_BAR, count) - 1]);
+    }
+    return { durations, bars };
+  }
+
+  // Which notes get a written accidental. Within a bar, a note needs one when it differs from the
+  // key signature or from an earlier accidental on its line or space. A bar line cancels those,
+  // but the first time a line or space comes back in a later bar, it gets a courtesy sign if the
+  // last note written there was different (melodic minor's naturals on the way down).
+  function writtenAccidentals(notes, signature, bars) {
+    const lastWritten = new Map();
+    const shown = [];
+    for (const [from, to] of bars) {
+      const inForce = new Map();
+      for (let i = from; i <= to; i++) {
+        const note = notes[i];
+        const current = inForce.has(note.step) ? inForce.get(note.step) : signature.alterations[note.letter];
+        const courtesy = !inForce.has(note.step) && lastWritten.has(note.step) && lastWritten.get(note.step) !== note.alter;
+        shown.push(note.alter !== current || courtesy ? VEX_ACCIDENTALS[note.alter] : null);
+        inForce.set(note.step, note.alter);
+        lastWritten.set(note.step, note.alter);
       }
-      const current = inForce.has(note.step) ? inForce.get(note.step) : signature.alterations[note.letter];
-      const needed = note.alter !== current || courtesy.has(note.step);
-      courtesy.delete(note.step);
-      inForce.set(note.step, note.alter);
-      return needed ? VEX_ACCIDENTALS[note.alter] : null;
-    });
+    }
+    return shown;
   }
 
   function placeNote(step, name) {
@@ -275,7 +291,7 @@
 
   // Everything the page draws for one scale. settings: { root, family, mode, form, octaves },
   // with root as a note name. Each staff's notes run up from the tonic and back down; `top` is the
-  // index of the highest note, where the first bar ends.
+  // index of the highest note. `bars` holds each 4/4 bar's [first, last] note index.
   function buildScale(settings) {
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
     const type = scaleType(choice);
@@ -288,6 +304,7 @@
     const blackKeys = degrees => degrees.map(isBlackKey);
     const naturalMinor = type.family === 'minor' ? blackKeys(spell(root, NATURAL_MINOR)) : null;
     const placement = placeHands(root, octaves);
+    const { durations, bars } = rhythm(2 * top + 1);
 
     const staves = [
       { clef: 'treble', hand: 'right', octave: placement.right },
@@ -300,14 +317,16 @@
       const preferred = naturalMinor ? chooseStart(naturalMinor, staff.hand) : undefined;
       const fingers = fingerRun(blackKeys(up), blackKeys(down), staff.hand, octaves, preferred);
       const crossed = crossings(notes, fingers, staff.hand);
-      const accidentals = writtenAccidentals(notes, signature, top);
+      const accidentals = writtenAccidentals(notes, signature, bars);
       return {
         ...staff,
-        notes: notes.map((note, i) => ({ ...note, finger: fingers[i], crossing: crossed[i], accidental: accidentals[i] })),
+        notes: notes.map((note, i) => ({
+          ...note, duration: durations[i], finger: fingers[i], crossing: crossed[i], accidental: accidentals[i],
+        })),
       };
     });
 
-    return { root, choice, type, title: titleOf(root, type), octaves, top, up, down, signature, staves };
+    return { root, choice, type, title: titleOf(root, type), octaves, top, bars, up, down, signature, staves };
   }
 
   return {
@@ -323,6 +342,7 @@
     chooseStart,
     fingersFor,
     fingerRun,
+    rhythm,
     buildScale,
     pitchClass,
     fifthsOf,
