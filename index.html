@@ -112,7 +112,21 @@
     gap: 26px;
   }
 
-  .masthead { display: grid; gap: 6px; }
+  /* Title and description on the left; the display options (octaves, root order) top right,
+     dropping below the title when there isn't room beside it. */
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px 40px;
+  }
+  .masthead-text { display: grid; gap: 6px; min-width: 0; flex: 1 1 360px; }
+  .view-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 28px;
+  }
   .masthead h1 {
     margin: 0;
     font: 700 clamp(28px, 3.4vw, 38px)/1.1 var(--font-display);
@@ -139,7 +153,7 @@
 
   /* Scale settings */
   .console { display: grid; gap: 20px; }
-  .console fieldset {
+  fieldset {
     margin: 0;
     padding: 0;
     border: 0;
@@ -377,8 +391,26 @@
 
 <main class="page">
   <header class="masthead">
-    <h1>Piano Scale Fingerings</h1>
-    <p>Choose a root and a scale to see it on the grand staff, ascending and descending, with the standard fingering for each hand.</p>
+    <div class="masthead-text">
+      <h1>Piano Scale Fingerings</h1>
+      <p>Choose a root and a scale to see it on the grand staff, ascending and descending, with the standard fingering for each hand.</p>
+    </div>
+    <div class="view-options" role="group" aria-label="Display options">
+      <fieldset>
+        <legend class="label">Octaves</legend>
+        <div class="choices">
+          <label class="pick choice"><input type="radio" name="octaves" id="octaves-1" value="1"><span>1</span></label>
+          <label class="pick choice"><input type="radio" name="octaves" id="octaves-2" value="2"><span>2</span></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend class="label">Root order</legend>
+        <div class="choices">
+          <label class="pick choice"><input type="radio" name="order" id="order-alphabetical" value="alphabetical"><span>Alphabetical</span></label>
+          <label class="pick choice"><input type="radio" name="order" id="order-fifths" value="fifths"><span>Circle of fifths</span></label>
+        </div>
+      </fieldset>
+    </div>
   </header>
 
   <form class="console" id="controls" aria-label="Scale settings">
@@ -401,20 +433,6 @@
       <fieldset id="form-field" hidden>
         <legend class="label">Minor form</legend>
         <div class="choices" id="forms"></div>
-      </fieldset>
-      <fieldset>
-        <legend class="label">Octaves</legend>
-        <div class="choices">
-          <label class="pick choice"><input type="radio" name="octaves" id="octaves-1" value="1"><span>1</span></label>
-          <label class="pick choice"><input type="radio" name="octaves" id="octaves-2" value="2"><span>2</span></label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend class="label">Root order</legend>
-        <div class="choices">
-          <label class="pick choice"><input type="radio" name="order" id="order-alphabetical" value="alphabetical"><span>Alphabetical</span></label>
-          <label class="pick choice"><input type="radio" name="order" id="order-fifths" value="fifths"><span>Circle of fifths</span></label>
-        </div>
       </fieldset>
     </div>
   </form>

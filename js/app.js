@@ -18,6 +18,8 @@
 
   const $ = id => document.getElementById(id);
   const controls = $('controls');
+  // Every setting: the scale controls plus the display options at the top right.
+  const settingsEl = document.querySelector('.page');
   const rootsEl = $('roots');
   const scoreEl = $('score');
 
@@ -91,14 +93,14 @@
     renderRoots();
     const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), order: state.order };
     for (const [name, value] of Object.entries(values)) {
-      const input = controls.querySelector(`input[name="${name}"][value="${value}"]`);
+      const input = settingsEl.querySelector(`input[name="${name}"][value="${value}"]`);
       if (input) input.checked = true;
     }
     $('mode-field').hidden = state.family !== 'major';
     $('form-field').hidden = state.family !== 'minor';
   }
 
-  controls.addEventListener('change', event => {
+  settingsEl.addEventListener('change', event => {
     const { name, value } = event.target;
     if (name === 'root') {
       state.root = value;
