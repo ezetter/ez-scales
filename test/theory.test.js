@@ -287,6 +287,22 @@ test('in thirds and sixths the hands start on different degrees and keep the key
   }
 });
 
+test('a note moves to the other clef rather than use ledger lines it can do without', () => {
+  const clefs = (s, hand) => staff(s, hand).notes.map(n => `${n.name}${n.octave}${n.clef === 'treble' ? 't' : 'b'}`).join(' ');
+  const inMotion = (motion, octaves = 1) => T.buildScale({
+    root: T.parseId('C'), family: 'major', mode: 'ionian', octaves, motion,
+  });
+  // The right hand in thirds starts in the bass clef, takes middle C there rather than switch
+  // for one note, and goes to treble for D4, which the bass clef would need a ledger line for.
+  assert.equal(clefs(inMotion('thirds'), 'right'),
+    'E3b F3b G3b A3b B3b C4b D4t E4t D4t C4t B3b A3b G3b F3b E3b');
+  assert.equal(clefs(inMotion('sixths'), 'left'),
+    'E3b F3b G3b A3b B3b C4b D4t E4t D4t C4t B3b A3b G3b F3b E3b');
+  // Notes that need ledger lines in either clef stay put.
+  assert.ok(staff(inMotion('parallel', 2), 'right').notes.every(n => n.clef === 'treble'));
+  assert.ok(staff(inMotion('parallel', 2), 'left').notes.every(n => n.clef === 'bass'));
+});
+
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {
   const one = scale('C', 'ionian');
   assert.deepEqual(one.bars, [[0, 7], [8, 14]]);

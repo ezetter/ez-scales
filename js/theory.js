@@ -133,6 +133,21 @@
     treble: { bottom: 30, top: 38 }, // E4 to F5
     bass: { bottom: 18, top: 26 }, // G2 to A3
   };
+  const OTHER_CLEF = { treble: 'bass', bass: 'treble' };
+
+  // True when a note sits on the staff or in the space just above or below it, with no ledger line.
+  const onStaff = (step, clef) => step >= STAVES[clef].bottom - 1 && step <= STAVES[clef].top + 1;
+
+  // The clef each note is written in. A staff starts in its own clef and switches only when a note
+  // would need ledger lines but fits on the other clef's staff without any. Notes that need ledger
+  // lines either way, like middle C, stay in the clef already in use, so the clef doesn't flicker.
+  function clefsFor(notes, home) {
+    let clef = home;
+    return notes.map(({ step }) => {
+      if (!onStaff(step, clef) && onStaff(step, OTHER_CLEF[clef])) clef = OTHER_CLEF[clef];
+      return clef;
+    });
+  }
 
   // [ledger lines on the busier side, ledger lines in all] to write steps low..high on a staff.
   function ledgerCost(low, high, staff) {
@@ -389,10 +404,16 @@
       const fingers = fingerPath(path, blackKeys(up), blackKeys(down), staff.hand, top, preferred);
       const crossed = crossings(notes, fingers, staff.hand);
       const accidentals = writtenAccidentals(notes, signature, bars);
+      const clefs = clefsFor(notes, staff.clef);
       return {
         ...staff,
         notes: notes.map((note, i) => ({
-          ...note, duration: durations[i], finger: fingers[i], crossing: crossed[i], accidental: accidentals[i],
+          ...note,
+          clef: clefs[i],
+          duration: durations[i],
+          finger: fingers[i],
+          crossing: crossed[i],
+          accidental: accidentals[i],
         })),
       };
     });

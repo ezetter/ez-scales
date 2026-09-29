@@ -186,9 +186,10 @@
   }
 
   // Beaming: eighth notes go in groups of four, half a bar each (fewer before the last bar's held
-  // note), and a longer note stands alone. Each group's stems point one way, chosen as VexFlow
+  // note or a clef change, which starts a new group), and a longer note stands alone. Each group's stems point one way, chosen as VexFlow
   // would: down when its notes sit on or above the middle line on average, else up.
   const MIDDLE_STEP = { treble: 34, bass: 22 };
+  const TOP_STEP = { treble: 38, bass: 26 };
 
   function stemGroups(part, bars) {
     const groups = [];
@@ -196,7 +197,7 @@
       let group = null;
       for (let i = from; i <= to; i++) {
         const eighth = part.notes[i].duration === '8';
-        if (!group || !eighth || !group.beamed || (i - from) % 4 === 0) {
+        if (!group || !eighth || !group.beamed || (i - from) % 4 === 0 || clefChanges(part, i)) {
           group = { notes: [], beamed: eighth };
           groups.push(group);
         }
@@ -204,21 +205,21 @@
       }
     }
     for (const group of groups) {
-      const lean = group.notes.reduce((sum, i) => sum + part.notes[i].step - MIDDLE_STEP[part.clef], 0);
+      const lean = group.notes.reduce((sum, i) => sum + part.notes[i].step - MIDDLE_STEP[part.notes[i].clef], 0);
       group.down = lean >= 0;
       group.beamed = group.beamed && group.notes.length > 1;
     }
     return groups;
   }
 
-  // Staff positions are 5px apart and stems about 35px long (a little more under a beam). Each
+  // Staff positions are 5px apart and stems about 35px long (a little more under a beam), measured
+  // in each note's own clef. Each
   // hand's finger row sits clear of every notehead, stem, beam and accidental on its side of the
   // system, and the staves move apart to fit notes that reach toward each other. tops[] is each
   // staff's top-line y; rows[] is the baseline of each finger row.
   function verticalLayout(scale, plans) {
     const [treble, bass] = scale.staves.map((part, p) => {
-      const topStep = part.clef === 'treble' ? 38 : 26;
-      const y = i => (topStep - part.notes[i].step) * 5;
+      const y = i => (TOP_STEP[part.notes[i].clef] - part.notes[i].step) * 5;
       let above = 0;
       let below = 0;
       for (const group of plans[p]) {
@@ -256,8 +257,12 @@
       `with ${signature} in the key signature, in 4/4 time as eighth notes. The table below lists each note's finger.`;
   }
 
-  // Horizontal room each duration gets, in eighth-note widths.
+  // Horizontal room each duration gets, in eighth-note widths, and a clef change in either staff.
   const ROOM = { 8: 1, q: 1.5, h: 2, hd: 2.5, w: 3 };
+  const CLEF_CHANGE_ROOM = 1.4;
+
+  // Whether note i starts in a different clef from the note before it on a staff.
+  const clefChanges = (part, i) => i > 0 && part.notes[i].clef !== part.notes[i - 1].clef;
 
   // The system: treble over bass in 4/4, joined by a brace, eighth notes beamed in fours.
   function renderScore(scale) {
@@ -273,13 +278,19 @@
     const width = renderedWidth;
     const { bars } = scale;
     const notesOf = ([from, to]) => scale.staves[0].notes.slice(from, to + 1);
-    const room = bars.map(bar => notesOf(bar).reduce((sum, note) => sum + ROOM[note.duration], 0));
+    const room = bars.map(([from, to]) => {
+      let total = notesOf([from, to]).reduce((sum, note) => sum + ROOM[note.duration], 0);
+      for (let i = from; i <= to; i++) {
+        if (scale.staves.some(part => clefChanges(part, i))) total += CLEF_CHANGE_ROOM;
+      }
+      return total;
+    });
     const totalRoom = room.reduce((a, b) => a + b, 0);
 
     // Clefs, key and time signatures, then the same room per eighth: as much as fits, within limits.
     const brace = 16;
     const header = Math.max(...scale.staves.map(part => new VF.Stave(0, 0, 400)
-      .addClef(part.clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4').getNoteStartX()));
+      .addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4').getNoteStartX()));
     const lead = new VF.Stave(0, 0, 400).getNoteStartX();
     const tail = 14;
     const spare = width - brace - 2 - header - bars.length * tail - (bars.length - 1) * lead;
@@ -304,7 +315,7 @@
     // Every note of both staves, built up front so beams can be attached before drawing.
     const staveNotes = scale.staves.map((part, p) => {
       const built = part.notes.map(note => {
-        const staveNote = new VF.StaveNote({ clef: part.clef, keys: [vexKey(note)], duration: note.duration });
+        const staveNote = new VF.StaveNote({ clef: note.clef, keys: [vexKey(note)], duration: note.duration });
         if (note.accidental) staveNote.addModifier(new VF.Accidental(note.accidental), 0);
         if (note.duration.endsWith('d')) VF.Dot.buildAndAttach([staveNote], { all: true });
         return staveNote;
@@ -328,7 +339,8 @@
         // VexFlow's own ledger-line color is a fixed dark grey that vanishes in dark mode.
         stave.setDefaultLedgerLineStyle({ strokeStyle: colors.staff, lineWidth: 1.3 });
         if (bar === 0) {
-          stave.addClef(part.clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4');
+          // Each staff opens in its first note's clef: the right hand may start in bass clef.
+          stave.addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4');
           // Start both staves' notes at the same x whatever their clefs' widths.
           stave.setNoteStartX(x + header);
         } else {
@@ -345,9 +357,15 @@
       }
       connect(last ? 'boldDoubleRight' : 'singleRight');
 
-      const voices = staveNotes.map((built, p) => new VF.Voice({ num_beats: 4, beat_value: 4 })
-        .addTickables(built.slice(from, to + 1))
-        .setStave(staves[p]));
+      // A small clef goes just before any note that changes clef.
+      const voices = staveNotes.map((built, p) => {
+        const tickables = [];
+        for (let i = from; i <= to; i++) {
+          if (clefChanges(scale.staves[p], i)) tickables.push(new VF.ClefNote(scale.staves[p].notes[i].clef, 'small'));
+          tickables.push(built[i]);
+        }
+        return new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(tickables).setStave(staves[p]);
+      });
       // Formatting both staves together lines up each note of the right hand over the left's.
       const formatter = new VF.Formatter();
       voices.forEach(voice => formatter.joinVoices([voice]));
