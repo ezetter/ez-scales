@@ -1,5 +1,5 @@
 /*
- * Piano Scale Fingerings: the controls, the grand staff (drawn with VexFlow) and the fingering
+ * Piano Scales with Fingerings: the controls, the grand staff (drawn with VexFlow) and the fingering
  * table. The music theory, including the fingering itself, is in theory.js.
  */
 (() => {

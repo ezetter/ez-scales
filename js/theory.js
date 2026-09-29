@@ -1,5 +1,5 @@
 /*
- * Music theory for Piano Scale Fingerings: note spelling, key signatures, the scales themselves,
+ * Music theory for Piano Scales with Fingerings: note spelling, key signatures, the scales themselves,
  * where each hand's notes sit on its staff, and piano fingering. There's no DOM code here, so the
  * page loads it as a classic script (window.ScaleTheory) and the tests require() it.
  */

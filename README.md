@@ -1,4 +1,4 @@
-# Piano Scale Fingerings
+# Piano Scales with Fingerings
 
 Shows a scale on a grand staff, ascending and descending, with the standard piano fingering for each hand: right hand above the treble staff, left hand below the bass staff.
 
