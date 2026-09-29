@@ -408,8 +408,12 @@
     return type.mode.number === 1 ? `${nameOf(root)} Major` : `${nameOf(root)} ${type.mode.name}`;
   }
 
-  // Everything the page draws for one scale. settings: { root, family, mode, form, octaves, motion },
-  // with root as a note name and motion one of the MOTIONS ids ('parallel' by default). `top` is
+  // How far the octave shift goes each way.
+  const MAX_SHIFT = 2;
+
+  // Everything the page draws for one scale. settings: { root, family, mode, form, octaves, motion,
+  // shift }, with root as a note name, motion one of the MOTIONS ids ('parallel' by default) and
+  // shift the whole octaves to move both hands (0 by default, up to MAX_SHIFT each way). `top` is
   // the index where each staff's run turns round; `bars` holds each 4/4 bar's [first, last] index.
   function buildScale(settings) {
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
@@ -444,6 +448,9 @@
     } else {
       lows = placeInterval(root, octaves, motion.from);
     }
+    // The octave shift moves both hands together, whole octaves at a time.
+    const shift = Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, Math.round(Number(settings.shift) || 0)));
+    lows = { right: lows.right + 7 * shift, left: lows.left + 7 * shift };
     const { durations, bars } = rhythm(2 * top + 1);
 
     const staves = [
@@ -457,7 +464,10 @@
       const crossed = crossings(notes, fingers, staff.hand);
       const accidentals = writtenAccidentals(notes, signature, bars);
       const variety = type.family === 'minor' ? type.form.id : type.mode.id;
-      const exception = CLEF_EXCEPTIONS[`${motion.id} ${variety} ${idOf(root)} ${octaves} ${staff.hand}`];
+      // Hand-set clef changes were set for the scale's usual octave, so a shift uses the rule.
+      const exception = shift === 0
+        ? CLEF_EXCEPTIONS[`${motion.id} ${variety} ${idOf(root)} ${octaves} ${staff.hand}`]
+        : undefined;
       const clefs = clefsFor(notes, staff.clef, top, exception);
       return {
         ...staff,
@@ -472,7 +482,9 @@
       };
     });
 
-    return { root, choice, type, title: titleOf(root, type), octaves, motion: motion.id, top, bars, up, down, signature, staves };
+    return {
+      root, choice, type, title: titleOf(root, type), octaves, motion: motion.id, shift, top, bars, up, down, signature, staves,
+    };
   }
 
   return {
@@ -480,6 +492,7 @@
     MODES,
     MINOR_FORMS,
     MOTIONS,
+    MAX_SHIFT,
     scaleType,
     rootsFor,
     matchRoot,

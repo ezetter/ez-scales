@@ -22,9 +22,10 @@ The notation library ([VexFlow](https://www.vexflow.com) 4.2.5) and the fonts lo
 | **Minor form** | Natural, Harmonic, Melodic | Melodic minor raises the 6th and 7th going up and comes back down as natural minor. |
 | **Octaves** | 1, 2 | Two octaves show how the fingering carries on through the middle of the scale. |
 | **Motion** | Parallel (default), Parallel in thirds, Parallel in sixths, Contrary | Parallel: both hands go up together and come back down. In thirds: the left hand starts on the tonic and the right hand exactly a third higher, on the 3rd degree (C3 and E3 in C major). In sixths: the right hand starts on the tonic nearest middle C and the left hand exactly a sixth lower, on the 3rd degree (E3 and C4 in C major, B2 and G3 in G, C♯3 and A3 in A, F♯3 and D4 in D). F♯ and G♭ are a tritone from middle C either way and take the lower tonic (B♭2 and G♭3 in G♭). The hands stay that interval apart throughout, so a hand may spend part of the run in the other hand's clef (see below). Contrary: both hands start in unison on the tonic, the right hand goes up while the left goes down, and they come back together. Each hand keeps the key's usual fingering on every note; in melodic minor each hand plays the raised 6th and 7th only while it's going up. |
+| **Octave shift** | ↓ and ↑ arrows, −2 to +2 (default 0) | Moves both hands up or down a whole octave per press. Fingering and accidentals stay the same; clefs are worked out again for the new range, so a hand may change clef where it didn't before. |
 | **Root order** | Alphabetical (default), Circle of fifths | How the root buttons are laid out. Alphabetical runs up the keyboard from C. Circle of fifths starts at the key with no sharps or flats (C major, A minor, D Dorian), goes through the sharp keys to six sharps, then the flat keys from six flats back to one: C G D A E B F♯ G♭ D♭ A♭ E♭ B♭ F in major. |
 
-Octaves, Motion and Root order are dropdowns at the top right; the scale, mode and root are buttons. Changing the scale keeps the same key, renamed if needed: G♭ major becomes F♯ minor.
+Octaves, Octave shift, Motion and Root order are at the top right; the scale, mode and root are buttons. Changing the scale keeps the same key, renamed if needed: G♭ major becomes F♯ minor.
 
 ### What the sheet shows
 

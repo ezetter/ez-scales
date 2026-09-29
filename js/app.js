@@ -8,7 +8,7 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical' };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0 };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
@@ -44,6 +44,7 @@
       if (saved.octaves === 1 || saved.octaves === 2) settings.octaves = saved.octaves;
       if (T.MOTIONS.some(m => m.id === saved.motion)) settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
+      if (Number.isInteger(saved.shift) && Math.abs(saved.shift) <= T.MAX_SHIFT) settings.shift = saved.shift;
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
     return settings;
@@ -105,7 +106,18 @@
     }
     $('mode-field').hidden = state.family !== 'major';
     $('form-field').hidden = state.family !== 'minor';
+    $('shift-value').textContent = state.shift > 0 ? `+${state.shift}` : state.shift < 0 ? `−${-state.shift}` : '0';
+    $('shift-down').disabled = state.shift <= -T.MAX_SHIFT;
+    $('shift-up').disabled = state.shift >= T.MAX_SHIFT;
   }
+
+  // The octave shift: both hands move a whole octave per press, up to T.MAX_SHIFT either way.
+  function shiftBy(octaves) {
+    state.shift = Math.max(-T.MAX_SHIFT, Math.min(T.MAX_SHIFT, state.shift + octaves));
+    update();
+  }
+  $('shift-down').addEventListener('click', () => shiftBy(-1));
+  $('shift-up').addEventListener('click', () => shiftBy(1));
 
   settingsEl.addEventListener('change', event => {
     const { name, value } = event.target;
@@ -145,6 +157,8 @@
     $('scale-sub').textContent = scale.motion === 'contrary'
       ? `${span} in contrary motion, hands starting together on the tonic`
       : `${span}${intervals[scale.motion] || ''}, ascending and descending`;
+    const moved = { '-2': 'two octaves lower', '-1': 'an octave lower', 1: 'an octave higher', 2: 'two octaves higher' }[scale.shift];
+    if (moved) $('scale-sub').textContent += `, ${moved} than usual`;
     const parent = `${nameHTML(scale.signature.major)} major`;
     const facts = [['Key signature', signatureHTML(scale.signature)]];
     if (scale.type.family === 'major') {

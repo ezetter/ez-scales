@@ -148,6 +148,44 @@
     outline: 2px solid var(--focus);
     outline-offset: 3px;
   }
+  /* Octave shift: down and up arrows either side of the current shift, the same height as the
+     dropdowns beside it. */
+  .shift { display: flex; align-items: center; gap: 4px; }
+  .shift-button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .shift-button svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .shift-button:hover:not(:disabled) { border-color: var(--staff); }
+  .shift-button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  .shift-button:disabled { color: var(--rule); cursor: default; }
+  .shift-value {
+    min-width: 30px;
+    text-align: center;
+    font: 600 15px/20px var(--font-ui);
+    font-variant-numeric: tabular-nums;
+  }
+
   .select::after {
     content: "";
     position: absolute;
@@ -432,6 +470,18 @@
             <option value="2">2</option>
           </select>
         </span>
+      </div>
+      <div>
+        <span class="label" id="shift-label">Octave shift</span>
+        <div class="shift" role="group" aria-labelledby="shift-label">
+          <button type="button" class="shift-button" id="shift-down" aria-label="Move all notes down an octave">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"/></svg>
+          </button>
+          <output class="shift-value" id="shift-value" aria-live="polite">0</output>
+          <button type="button" class="shift-button" id="shift-up" aria-label="Move all notes up an octave">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>
+          </button>
+        </div>
       </div>
       <div>
         <label class="label" for="motion">Motion</label>

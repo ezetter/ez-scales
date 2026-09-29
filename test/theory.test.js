@@ -334,6 +334,35 @@ test('a staff changes clef only for notes too far off it, once out and once back
     'B♭2b C♭3b D♭3b E♭3b F3b G♭3b A♭3b B♭3b C♭4b D♭4b E♭4b F4b G♭4t A♭4t B♭4t A♭4t G♭4b F4b E♭4b D♭4b C♭4b B♭3b A♭3b G♭3b F3b E♭3b D♭3b C♭3b B♭2b');
 });
 
+test('the octave shift moves both hands whole octaves, keeping fingering and redoing clefs', () => {
+  const shifted = (shift, motion = 'parallel', id = 'C') => T.buildScale({
+    root: T.parseId(id), family: 'major', mode: 'ionian', octaves: 1, motion, shift,
+  });
+  const base = shifted(0);
+  for (const shift of [-2, -1, 1, 2]) {
+    const s = shifted(shift);
+    assert.equal(s.shift, shift);
+    for (const hand of ['right', 'left']) {
+      staff(s, hand).notes.forEach((note, i) => {
+        const before = staff(base, hand).notes[i];
+        assert.equal(note.midi - before.midi, 12 * shift, `shift ${shift}, ${hand} hand, note ${i}`);
+        assert.equal(note.finger, before.finger);
+      });
+    }
+  }
+  // Up an octave, the left hand plays C4 to C5 and goes to treble around the top.
+  assert.ok(staff(shifted(1), 'left').notes.some(n => n.clef === 'treble'));
+  // The shift stops at two octaves either way.
+  assert.equal(shifted(5).shift, T.MAX_SHIFT);
+  assert.equal(shifted(-5).shift, -T.MAX_SHIFT);
+  // G♭'s hand-set clef changes belong to its usual octave; shifted, the rule takes over.
+  const gFlat = shift => staff(T.buildScale({
+    root: T.parseId('Gb'), family: 'major', mode: 'ionian', octaves: 2, motion: 'sixths', shift,
+  }), 'left').notes.filter(n => n.clef === 'treble').length;
+  assert.equal(gFlat(0), 4);
+  assert.notEqual(gFlat(-1), 4);
+});
+
 test('the run is eighth notes in 4/4, with a held note filling the last bar', () => {
   const one = scale('C', 'ionian');
   assert.deepEqual(one.bars, [[0, 7], [8, 14]]);
