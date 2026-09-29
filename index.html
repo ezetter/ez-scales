@@ -112,7 +112,7 @@
     gap: 26px;
   }
 
-  /* Title on the left; the display options (pattern, octaves, shift, motion, root order) top right,
+  /* Title on the left; the display options (octaves, shift, motion, root order) top right,
      dropping below the title when there isn't room beside it. */
   .masthead {
     display: flex;
@@ -467,15 +467,6 @@
     </div>
     <div class="view-options" role="group" aria-label="Display options">
       <div>
-        <label class="label" for="pattern">Pattern</label>
-        <span class="select">
-          <select name="pattern" id="pattern">
-            <option value="scale">Scales</option>
-            <option value="arpeggio">Arpeggios</option>
-          </select>
-        </span>
-      </div>
-      <div>
         <label class="label" for="octaves">Octaves</label>
         <span class="select">
           <select name="octaves" id="octaves">
@@ -496,7 +487,7 @@
           </button>
         </div>
       </div>
-      <div id="motion-field">
+      <div>
         <label class="label" for="motion">Motion</label>
         <span class="select"><select name="motion" id="motion"></select></span>
       </div>

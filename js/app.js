@@ -8,7 +8,7 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0, pattern: 'scale' };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0 };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
@@ -45,7 +45,8 @@
       if (T.MOTIONS.some(m => m.id === saved.motion)) settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
       if (Number.isInteger(saved.shift) && Math.abs(saved.shift) <= T.MAX_SHIFT) settings.shift = saved.shift;
-      if (saved.pattern === 'scale' || saved.pattern === 'arpeggio') settings.pattern = saved.pattern;
+      // Arpeggios used to be a separate Pattern setting.
+      if (saved.pattern === 'arpeggio') settings.motion = 'arpeggios';
     }
     settings.root = T.idOf(T.matchRoot(T.parseId(settings.root), settings));
     return settings;
@@ -95,7 +96,7 @@
 
   function syncControls() {
     renderRoots();
-    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order, pattern: state.pattern };
+    const values = { root: state.root, family: state.family, mode: state.mode, form: state.form, octaves: String(state.octaves), motion: state.motion, order: state.order };
     for (const [name, value] of Object.entries(values)) {
       const select = settingsEl.querySelector(`select[name="${name}"]`);
       if (select) {
@@ -107,8 +108,6 @@
     }
     $('mode-field').hidden = state.family !== 'major';
     $('form-field').hidden = state.family !== 'minor';
-    // Arpeggios are always in parallel motion.
-    $('motion-field').hidden = state.pattern === 'arpeggio';
     $('shift-value').textContent = state.shift > 0 ? `+${state.shift}` : state.shift < 0 ? `−${-state.shift}` : '0';
     $('shift-down').disabled = state.shift <= -T.MAX_SHIFT;
     $('shift-up').disabled = state.shift >= T.MAX_SHIFT;
@@ -130,8 +129,6 @@
       state.octaves = Number(value);
     } else if (name === 'motion') {
       state.motion = value;
-    } else if (name === 'pattern') {
-      state.pattern = value;
     } else if (name === 'order') {
       state.order = value;
     } else if (name === 'family' || name === 'mode' || name === 'form') {

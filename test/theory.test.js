@@ -202,7 +202,7 @@ test('every scale is playable: thumbs on white keys, crossings through the thumb
     const minor = MINOR_FORMS.includes(kind);
     const choice = { family: minor ? 'minor' : 'major', mode: kind, form: kind };
     for (const root of T.rootsFor(choice)) {
-      for (const [octaves, motion] of T.MOTIONS.flatMap(m => [[1, m.id], [2, m.id]])) {
+      for (const [octaves, motion] of T.MOTIONS.filter(m => m.id !== 'arpeggios').flatMap(m => [[1, m.id], [2, m.id]])) {
         const s = T.buildScale({ ...choice, root, octaves, motion });
         for (const { hand, notes } of s.staves) {
           const where = `${s.title}, ${octaves} octave(s) ${motion}, ${hand} hand`;
@@ -368,7 +368,7 @@ test('the octave shift moves both hands whole octaves, keeping fingering and red
 
 test('arpeggios: root position and both inversions on one line, with standard fingering', () => {
   const arpeggios = (id, family = 'major', octaves = 2, mode = 'ionian') => T.buildScale({
-    root: T.parseId(id), family, mode, form: 'natural', octaves, pattern: 'arpeggio',
+    root: T.parseId(id), family, mode, form: 'natural', octaves, motion: 'arpeggios',
   });
   // Fingering going up each inversion: [right hand, left hand] per inversion.
   const going = s => s.segments.map(g => ['right', 'left']
@@ -402,7 +402,7 @@ test('arpeggios: root position and both inversions on one line, with standard fi
   // Every key plays cleanly: thumbs off black keys unless the whole chord is black.
   for (const family of ['major', 'minor']) {
     for (const root of T.rootsFor({ family, mode: 'ionian', form: 'natural' })) {
-      const s = T.buildScale({ root, family, mode: 'ionian', form: 'natural', octaves: 2, pattern: 'arpeggio' });
+      const s = T.buildScale({ root, family, mode: 'ionian', form: 'natural', octaves: 2, motion: 'arpeggios' });
       const allBlack = s.triad.every(T.isBlackKey);
       for (const { notes } of s.staves) {
         notes.forEach((note, i) => {

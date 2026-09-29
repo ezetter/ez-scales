@@ -343,6 +343,8 @@
     { id: 'thirds', name: 'Parallel in thirds', from: { right: 2, left: 0 } },
     { id: 'sixths', name: 'Parallel in sixths', from: { right: 0, left: 2 } },
     { id: 'contrary', name: 'Contrary', from: { right: 0, left: 0 } },
+    // Not a way of moving through the scale: the tonic triad's arpeggios (see buildArpeggios).
+    { id: 'arpeggios', name: 'Arpeggios', from: { right: 0, left: 0 } },
   ];
 
   // True where the hand shifts position: the thumb passes under, or a finger crosses over it.
@@ -418,9 +420,9 @@
   // shift }, with root as a note name, motion one of the MOTIONS ids ('parallel' by default) and
   // shift the whole octaves to move both hands (0 by default, up to MAX_SHIFT each way). `top` is
   // the index where each staff's run turns round; `bars` holds each 4/4 bar's [first, last] index.
-  // settings.pattern 'arpeggio' builds the tonic triad's arpeggios instead (see buildArpeggios).
+  // Motion 'arpeggios' builds the tonic triad's arpeggios instead (see buildArpeggios).
   function buildScale(settings) {
-    if (settings.pattern === 'arpeggio') return buildArpeggios(settings);
+    if (settings.motion === 'arpeggios') return buildArpeggios(settings);
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
     const type = scaleType(choice);
     const root = matchRoot(settings.root, choice);
@@ -627,7 +629,7 @@
       ? `${nameOf(root)} Minor Arpeggios`
       : `${titleOf(root, type)} Arpeggios`;
     return {
-      pattern: 'arpeggio', root, choice, type, title, chord: chordName(triad), triad, octaves, motion: 'parallel', shift,
+      pattern: 'arpeggio', root, choice, type, title, chord: chordName(triad), triad, octaves, motion: 'arpeggios', shift,
       top, segments, bars, up, down, signature, staves,
     };
   }
