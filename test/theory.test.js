@@ -276,6 +276,14 @@ test('in thirds and sixths the hands start on different degrees and keep the key
   const starts = (s, hand) => `${staff(s, hand).notes[0].name}${staff(s, hand).notes[0].octave}`;
   assert.deepEqual([starts(thirds, 'left'), starts(thirds, 'right')], ['C3', 'E3']);
   assert.deepEqual([starts(sixths, 'left'), starts(sixths, 'right')], ['E3', 'C4']);
+  // Sixths always start with the right hand on the tonic in middle C's octave, whatever the key
+  // or number of octaves.
+  for (const [id, left, right] of [['C', 'E3', 'C4'], ['G', 'B3', 'G4'], ['F', 'A3', 'F4'], ['B', 'D♯4', 'B4'], ['Eb', 'G3', 'E♭4']]) {
+    for (const octaves of [1, 2]) {
+      const s = inMotion(id, 'sixths', octaves);
+      assert.deepEqual([starts(s, 'left'), starts(s, 'right')], [left, right], `${s.title}, ${octaves} octave(s)`);
+    }
+  }
   for (const [motion, steps] of [['thirds', 2], ['sixths', 5]]) {
     for (const id of ['C', 'D', 'Eb', 'Fs', 'A', 'B']) {
       for (const octaves of [1, 2]) {
