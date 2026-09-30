@@ -8,13 +8,15 @@
   const T = window.ScaleTheory;
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const STORAGE_KEY = 'piano-scale-fingerings';
-  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0 };
+  const DEFAULTS = { root: 'C', family: 'major', mode: 'ionian', form: 'natural', octaves: 1, motion: 'parallel', order: 'alphabetical', shift: 0, tempo: 96 };
   // Horizontal room per note on the staff, in px: the fewest before the staff scrolls sideways,
   // and the most before a short scale looks stretched.
   const MIN_SPACING = 30;
   const MAX_SPACING = 64;
   const VEX_ALTER = { '-2': 'bb', '-1': 'b', 0: '', 1: '#', 2: '##' };
   const ORDINALS = ['', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'];
+  // Playback tempo limits, in quarter notes a minute.
+  const TEMPO_RANGE = [40, 208];
 
   const $ = id => document.getElementById(id);
   const controls = $('controls');
@@ -25,6 +27,8 @@
 
   const state = loadState();
   let current = null;
+  // What renderScore drew for each note, per staff: { x, parts } (see light()).
+  let drawn = [];
   let renderedWidth = 0;
 
   // Settings last until the next visit where the browser allows storage; nothing depends on it.
@@ -45,6 +49,7 @@
       if (T.MOTIONS.some(m => m.id === saved.motion)) settings.motion = saved.motion;
       if (saved.order === 'alphabetical' || saved.order === 'fifths') settings.order = saved.order;
       if (Number.isInteger(saved.shift) && Math.abs(saved.shift) <= T.MAX_SHIFT) settings.shift = saved.shift;
+      if (Number.isFinite(saved.tempo)) settings.tempo = clampTempo(saved.tempo);
       // Arpeggios used to be a separate Pattern setting.
       if (saved.pattern === 'arpeggio') settings.motion = 'arpeggios';
     }
@@ -111,6 +116,7 @@
     $('shift-value').textContent = state.shift > 0 ? `+${state.shift}` : state.shift < 0 ? `−${-state.shift}` : '0';
     $('shift-down').disabled = state.shift <= -T.MAX_SHIFT;
     $('shift-up').disabled = state.shift >= T.MAX_SHIFT;
+    $('tempo').value = state.tempo;
   }
 
   // The octave shift: both hands move a whole octave per press, up to T.MAX_SHIFT either way.
@@ -123,6 +129,13 @@
 
   settingsEl.addEventListener('change', event => {
     const { name, value } = event.target;
+    if (name === 'tempo') {
+      // Tempo only affects the next play, so nothing needs redrawing.
+      state.tempo = clampTempo(value);
+      event.target.value = state.tempo;
+      saveState();
+      return;
+    }
     if (name === 'root') {
       state.root = value;
     } else if (name === 'octaves') {
@@ -209,6 +222,7 @@
     const node = svgElement('text', { x, y, 'text-anchor': anchor, class: className });
     node.textContent = text;
     svg.appendChild(node);
+    return node;
   }
 
   // Beaming: eighth notes go in groups of four, half a bar each (fewer before the last bar's held
@@ -417,13 +431,17 @@
     });
     beams.forEach(beam => beam.setContext(ctx).draw());
 
-    scale.staves.forEach((part, p) => part.notes.forEach((note, i) => {
+    // Each note's drawn parts, kept so playback can light up the note that's sounding.
+    drawn = scale.staves.map((part, p) => part.notes.map((note, i) => {
       const staveNote = staveNotes[p][i];
       const cx = (staveNote.getNoteHeadBeginX() + staveNote.getNoteHeadEndX()) / 2;
       const row = layout.rows[p];
       if (note.crossing) svg.appendChild(svgElement('circle', { cx, cy: row - 6, r: 11, class: 'crossing-ring' }));
-      addText(svg, cx, row, note.finger, note.crossing ? 'finger is-crossing' : 'finger');
+      const finger = addText(svg, cx, row, note.finger, note.crossing ? 'finger is-crossing' : 'finger');
+      const head = staveNote.getSVGElement ? staveNote.getSVGElement() : document.getElementById(`vf-${staveNote.getAttribute('id')}`);
+      return { x: cx, parts: [head, finger].filter(Boolean) };
     }));
+    if (session && session.lit !== null) light(session.lit);
     (scale.segments || []).forEach(g => {
       addText(svg, staveNotes[0][g.from].getNoteHeadBeginX() - 4, layout.rows[0] - 24, g.name, 'segment-label', 'start');
     });
@@ -480,7 +498,179 @@
       : first + glanceTable(back, scale, scale.top, 2 * scale.top);
   }
 
+  // ---- Playback ------------------------------------------------------------------------------
+  // A synthesized piano, the same as Chord Progression Builder's: the page can't fetch recorded
+  // samples, so each note is a stack of slightly stretched harmonics that die away faster the
+  // higher they are, with a short hammer thump on the attack and a little generated room reverb.
+  // Both hands play the written rhythm at state.tempo quarter notes a minute.
+  function clampTempo(value) {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) ? Math.max(TEMPO_RANGE[0], Math.min(TEMPO_RANGE[1], n)) : 96;
+  }
+  const BEATS = { 8: 0.5, q: 1, qd: 1.5, h: 2, hd: 3, w: 4 };
+  const PARTIALS = [1, 0.5, 0.3, 0.2, 0.12, 0.08, 0.05, 0.035];
+  const playButton = $('play');
+  let audio = null;
+  let session = null;
+
+  function getAudio() {
+    if (audio) return audio;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    const ctx = new AudioCtx();
+    const master = ctx.createGain();
+    master.gain.value = 0.9;
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -16;
+    compressor.ratio.value = 4;
+    const reverb = ctx.createConvolver();
+    reverb.buffer = roomImpulse(ctx, 1.8);
+    const wet = ctx.createGain();
+    wet.gain.value = 0.25;
+    master.connect(compressor);
+    master.connect(reverb);
+    reverb.connect(wet);
+    wet.connect(compressor);
+    compressor.connect(ctx.destination);
+    const noise = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.05), ctx.sampleRate);
+    noise.getChannelData(0).forEach((_, i, data) => { data[i] = Math.random() * 2 - 1; });
+    audio = { ctx, master, noise };
+    return audio;
+  }
+
+  function roomImpulse(ctx, seconds) {
+    const length = Math.floor(ctx.sampleRate * seconds);
+    const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+    for (let channel = 0; channel < 2; channel++) {
+      const data = buffer.getChannelData(channel);
+      for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 3;
+    }
+    return buffer;
+  }
+
+  function playNote(out, midi, time, length) {
+    const { ctx, noise } = audio;
+    const f0 = 440 * 2 ** ((midi - 69) / 12);
+    const stop = time + length + 1.5;
+    const voice = ctx.createGain();
+    voice.gain.setValueAtTime(0.15, time);
+    voice.gain.setTargetAtTime(0, time + length, 0.08);
+    voice.connect(out);
+    // Lower notes ring longer, as on a real piano.
+    const sustain = 1.6 * (261.6 / f0) ** 0.35;
+
+    PARTIALS.forEach((amp, i) => {
+      const n = i + 1;
+      const freq = f0 * n * Math.sqrt(1 + 0.0004 * n * n);
+      if (freq > 15000) return;
+      // The lowest partials get two slightly detuned "strings" for a little shimmer.
+      const detunes = n <= 2 ? [-1.5, 1.5] : [0];
+      const partial = ctx.createGain();
+      partial.gain.setValueAtTime(0, time);
+      partial.gain.linearRampToValueAtTime(amp / detunes.length, time + 0.004);
+      partial.gain.setTargetAtTime(0, time + 0.004, sustain / n ** 0.8);
+      partial.connect(voice);
+      detunes.forEach(cents => {
+        const osc = ctx.createOscillator();
+        osc.frequency.value = freq;
+        osc.detune.value = cents;
+        osc.connect(partial);
+        osc.start(time);
+        osc.stop(stop);
+      });
+    });
+
+    const hammer = ctx.createBufferSource();
+    hammer.buffer = noise;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = Math.min(f0 * 4, 4000);
+    band.Q.value = 1.2;
+    const thump = ctx.createGain();
+    thump.gain.setValueAtTime(0.3, time);
+    thump.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+    hammer.connect(band);
+    band.connect(thump);
+    thump.connect(voice);
+    hammer.start(time);
+  }
+
+  // Runs fn when the audio clock reaches the given time.
+  function atTime(seconds, fn) {
+    session.timers.push(setTimeout(fn, Math.max(0, (seconds - audio.ctx.currentTime) * 1000)));
+  }
+
+  // Lights note i on both staves (null for none), and scrolls a wide score to keep it in view.
+  function light(i) {
+    scoreEl.querySelectorAll('.is-playing').forEach(el => el.classList.remove('is-playing'));
+    if (session) session.lit = i;
+    if (i === null) return;
+    drawn.forEach(notes => notes[i] && notes[i].parts.forEach(el => el.classList.add('is-playing')));
+    const x = drawn[0] && drawn[0][i] ? drawn[0][i].x : null;
+    if (x !== null && (x < scoreEl.scrollLeft + 40 || x > scoreEl.scrollLeft + scoreEl.clientWidth - 40)) {
+      scoreEl.scrollLeft = Math.max(0, x - scoreEl.clientWidth / 3);
+    }
+  }
+
+  function syncPlayButton() {
+    const playing = Boolean(session);
+    playButton.classList.toggle('is-playing', playing);
+    playButton.setAttribute('aria-pressed', String(playing));
+    $('play-label').textContent = playing ? 'Stop' : 'Play';
+  }
+
+  // Plays both hands note by note in the written rhythm, the last note held a little longer.
+  function play() {
+    const a = getAudio();
+    if (!a) {
+      $('play-note').hidden = false;
+      return;
+    }
+    if (a.ctx.state === 'suspended') a.ctx.resume();
+    stopPlayback();
+    const gain = a.ctx.createGain();
+    gain.connect(a.master);
+    session = { gain, timers: [], lit: null };
+    const beat = 60 / state.tempo;
+    const [right, left] = current.staves;
+    let time = a.ctx.currentTime + 0.1;
+    right.notes.forEach((note, i) => {
+      const last = i === right.notes.length - 1;
+      const length = BEATS[note.duration] * beat;
+      const sound = last ? length + 0.6 : length * 0.95;
+      playNote(gain, note.midi, time, sound);
+      playNote(gain, left.notes[i].midi, time, sound);
+      atTime(time, () => light(i));
+      time += length;
+    });
+    atTime(time, finishSession);
+    syncPlayButton();
+  }
+
+  // Ends the session but lets notes already sounding ring out.
+  function finishSession() {
+    if (!session) return;
+    session.timers.forEach(clearTimeout);
+    session = null;
+    light(null);
+    syncPlayButton();
+  }
+
+  // Cuts playback short with a quick fade, like lifting the sustain.
+  function stopPlayback() {
+    if (!session) return;
+    const { gain } = session;
+    const now = audio.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(0, now, 0.04);
+    setTimeout(() => gain.disconnect(), 500);
+    finishSession();
+  }
+
+  playButton.addEventListener('click', () => (session ? stopPlayback() : play()));
+
   function update() {
+    stopPlayback();
     current = T.buildScale({ ...state, root: T.parseId(state.root) });
     syncControls();
     renderHeading(current);

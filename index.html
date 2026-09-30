@@ -351,6 +351,47 @@
   }
   .facts dd { margin: 0; font-weight: 500; }
 
+  /* Play button and tempo, just above the staff. */
+  .transport {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+  }
+  .play-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 16px 8px 12px;
+    border: 1px solid var(--felt-fill);
+    border-radius: 6px;
+    background: var(--felt-fill);
+    color: var(--on-felt);
+    font: 600 15px/20px var(--font-ui);
+    cursor: pointer;
+  }
+  .play-button svg { width: 16px; height: 16px; fill: currentColor; }
+  .play-button .icon-stop, .play-button.is-playing .icon-play { display: none; }
+  .play-button.is-playing .icon-stop { display: block; }
+  .play-button:hover { border-color: var(--felt-lip); }
+  .play-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .tempo { display: flex; align-items: center; gap: 8px; }
+  .tempo .label { margin: 0; }
+  .tempo input {
+    width: 72px;
+    padding: 7px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 500 15px/20px var(--font-ui);
+    font-variant-numeric: tabular-nums;
+  }
+  .tempo input:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+  .tempo-unit { font-size: 14px; color: var(--muted); }
+  .play-note { margin: 0; font-size: 14px; color: var(--muted); }
+
   .score {
     min-width: 0;
     overflow-x: auto;
@@ -363,6 +404,9 @@
     fill: var(--ink);
   }
   .score .finger.is-crossing { fill: var(--felt); }
+  /* The note sounding during playback: its head, stem and finger number turn felt red. */
+  .score .is-playing, .score .is-playing path { fill: var(--felt); stroke: var(--felt); }
+  .score text.finger.is-playing { font-size: 19px; }
   .score .crossing-ring {
     fill: var(--felt-wash);
     stroke: var(--felt);
@@ -534,6 +578,19 @@
         <p class="sheet-sub" id="scale-sub">One octave, ascending and descending</p>
       </div>
       <dl class="facts" id="facts"></dl>
+    </div>
+    <div class="transport">
+      <button type="button" class="play-button" id="play" aria-pressed="false">
+        <svg class="icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg>
+        <svg class="icon-stop" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg>
+        <span id="play-label">Play</span>
+      </button>
+      <label class="tempo" for="tempo">
+        <span class="label">Tempo</span>
+        <input type="number" id="tempo" name="tempo" min="40" max="208" step="4" value="96" inputmode="numeric">
+        <span class="tempo-unit">quarter notes a minute</span>
+      </label>
+      <p class="play-note" id="play-note" hidden>This browser can’t play sound.</p>
     </div>
     <div class="score" id="score" role="img"></div>
     <p class="scroll-hint" id="scroll-hint" hidden>Scroll sideways to see the whole scale.</p>
