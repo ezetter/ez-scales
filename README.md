@@ -29,7 +29,7 @@ Octaves, Octave shift, Motion and Root order are at the top right; the scale, mo
 
 ### What the sheet shows
 
-- **Play** above the staff plays both hands on a synthesized piano in the written rhythm, at the **Tempo** beside it (quarter notes a minute, 40–208, default 96). The note sounding turns red on the staff, with its finger numbers, and a wide score scrolls to keep it in view. Press **Stop**, or change any setting, to stop. The piano is synthesized with the Web Audio API (the same sound as Chord Progression Builder), since the published page can't load recorded samples.
+- **Play** below the staff plays both hands on a synthesized piano in the written rhythm, at the **Tempo** beside it (quarter notes a minute, 40–208, default 96). The note sounding turns red on the staff, with its finger numbers, and a wide score scrolls to keep it in view. Press **Stop**, or change any setting, to stop. The piano is synthesized with the Web Audio API (the same sound as Chord Progression Builder), since the published page can't load recorded samples.
 
 - The scale's name, key signature, parent or relative major, and notes.
 - The grand staff in 4/4: eighth notes beamed in fours, eight to a bar, with the last note held to fill the final bar (a quarter note for one octave, a half note for two). Accidentals follow the usual rules: a sign lasts to the end of its bar, and a courtesy sign reminds you when a line or space changes back in a later bar, as with melodic minor's naturals on the way down.

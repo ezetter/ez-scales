@@ -351,7 +351,7 @@
   }
   .facts dd { margin: 0; font-weight: 500; }
 
-  /* Play button and tempo, just above the staff. */
+  /* Play button and tempo, just below the staff. */
   .transport {
     display: flex;
     flex-wrap: wrap;
@@ -579,6 +579,8 @@
       </div>
       <dl class="facts" id="facts"></dl>
     </div>
+    <div class="score" id="score" role="img"></div>
+    <p class="scroll-hint" id="scroll-hint" hidden>Scroll sideways to see the whole scale.</p>
     <div class="transport">
       <button type="button" class="play-button" id="play" aria-pressed="false">
         <svg class="icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg>
@@ -592,8 +594,6 @@
       </label>
       <p class="play-note" id="play-note" hidden>This browser can’t play sound.</p>
     </div>
-    <div class="score" id="score" role="img"></div>
-    <p class="scroll-hint" id="scroll-hint" hidden>Scroll sideways to see the whole scale.</p>
     <div class="legend">
       <p>Right-hand fingers are above the treble staff, left-hand fingers below the bass staff.</p>
       <p><span class="ring" aria-hidden="true">1</span> The thumb passes under, or a finger crosses over it.</p>
