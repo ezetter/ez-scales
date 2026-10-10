@@ -161,7 +161,8 @@
   // symmetrically around `top`, so the stretch is either around the top of the run (the left hand
   // climbing into the treble) or at both ends (the right hand starting low).
   // `exception`, when given, is the [first, last] note index to write in the other clef instead.
-  function clefsFor(notes, home, top, exception) {
+  // `group` is the beam group size (4 in 4/4 eighths, 3 in 6/8).
+  function clefsFor(notes, home, top, exception, group = GROUP) {
     const last = notes.length - 1;
     const far = notes.map(({ step }) => tooFar(step, home));
     const away = new Array(notes.length).fill(false);
@@ -171,22 +172,22 @@
     } else if (farIndexes.length && far[top]) {
       // Around the top: from s up to the matching pitch coming back.
       const lastFar = Math.max(...farIndexes);
-      let s = Math.floor(farIndexes[0] / GROUP) * GROUP;
-      while (s > 0 && last - s <= lastFar) s -= GROUP;
-      while (last - 2 * s < SHORTEST_EXCURSION && s >= 2 * GROUP) s -= GROUP;
+      let s = Math.floor(farIndexes[0] / group) * group;
+      while (s > 0 && last - s <= lastFar) s -= group;
+      while (last - 2 * s < SHORTEST_EXCURSION && s >= 2 * group) s -= group;
       for (let i = s; i < last - s; i++) away[i] = true;
     } else if (farIndexes.length && far[0]) {
       // At both ends: from the start until the first beam group clear of the far notes, and from
       // the matching pitch on the way back to the end.
       const lastOnWayOut = Math.max(...farIndexes.filter(i => i <= top));
-      const back = Math.min(top, (Math.floor(lastOnWayOut / GROUP) + 1) * GROUP);
+      const back = Math.min(top, (Math.floor(lastOnWayOut / group) + 1) * group);
       for (let i = 0; i < back; i++) away[i] = true;
       for (let i = last - back; i <= last; i++) away[i] = true;
     } else {
       // Anything else: each beam group with a far note goes in the other clef.
       farIndexes.forEach(i => {
-        const start = Math.floor(i / GROUP) * GROUP;
-        for (let j = start; j < Math.min(start + GROUP, notes.length); j++) away[j] = true;
+        const start = Math.floor(i / group) * group;
+        for (let j = start; j < Math.min(start + group, notes.length); j++) away[j] = true;
       });
     }
     return away.map(isAway => (isAway ? OTHER_CLEF[home] : home));
@@ -345,6 +346,8 @@
     { id: 'contrary', name: 'Contrary', from: { right: 0, left: 0 } },
     // Not a way of moving through the scale: the tonic triad's arpeggios (see buildArpeggios).
     { id: 'arpeggios', name: 'Arpeggios', from: { right: 0, left: 0 } },
+    // The tonic triad as broken chords in 6/8 (see buildBrokenChords).
+    { id: 'broken', name: 'Broken chords', from: { right: 0, left: 0 } },
   ];
 
   // True where the hand shifts position: the thumb passes under, or a finger crosses over it.
@@ -423,6 +426,7 @@
   // Motion 'arpeggios' builds the tonic triad's arpeggios instead (see buildArpeggios).
   function buildScale(settings) {
     if (settings.motion === 'arpeggios') return buildArpeggios(settings);
+    if (settings.motion === 'broken') return buildBrokenChords(settings);
     const choice = { family: settings.family, mode: settings.mode, form: settings.form };
     const type = scaleType(choice);
     const root = matchRoot(settings.root, choice);
@@ -631,6 +635,79 @@
     return {
       pattern: 'arpeggio', root, choice, type, title, chord: chordName(triad), triad, octaves, motion: 'arpeggios', shift,
       top, segments, bars, up, down, signature, staves,
+    };
+  }
+
+  // Broken chords, written in 6/8: groups of three chord notes, each group starting on the next
+  // note of the triad (C E G, E G C, G C E, C E G in C major) up to the top, then the same groups
+  // back down in reverse, eighth notes beamed in threes. The hand keeps one position per group:
+  // the right hand plays 1 _ 5 from the bottom and the left hand 5 _ 1, with the middle note on
+  // the 2nd finger when it's a third from the thumb and a fourth from the 5th, otherwise the 3rd
+  // (right hand 1 3 5, 1 2 5, 1 3 5; left hand 5 3 1, 5 3 1, 5 2 1). Coming down, each group
+  // reverses its fingers. The hands are an octave apart.
+  const BROKEN_METER = { time: '6/8', beats: 6, value: 8, group: 3 };
+
+  function buildBrokenChords(settings) {
+    const choice = { family: settings.family, mode: settings.mode, form: settings.form };
+    const type = scaleType(choice);
+    const root = matchRoot(settings.root, choice);
+    const octaves = settings.octaves === 2 ? 2 : 1;
+    const up = spell(root, type.up);
+    const down = spell(root, type.down);
+    const triad = [up[0], up[2], up[4]];
+    const signature = keySignature(fifthsOf(root) + type.keyOffset);
+    const shift = Math.max(-MAX_SHIFT, Math.min(MAX_SHIFT, Math.round(Number(settings.shift) || 0)));
+    const home = placeHands(root, octaves);
+    const groups = 3 * octaves + 1;
+    // Staff steps from the tonic to chord note i (0 the tonic, 3 the tonic an octave up, ...).
+    const chordStep = i => 7 * Math.floor(i / 3) + mod(triad[i % 3].letter - root.letter, 7);
+    const count = 6 * groups;
+    const bars = [];
+    for (let from = 0; from < count; from += BROKEN_METER.beats) bars.push([from, from + BROKEN_METER.beats - 1]);
+    const top = 3 * groups - 1;
+
+    const staves = [
+      { clef: 'treble', hand: 'right' },
+      { clef: 'bass', hand: 'left' },
+    ].map(staff => {
+      const low = home[staff.hand] + 7 * shift;
+      const chord = [];
+      for (let i = 0; i < groups + 2; i++) chord.push(placeNote(low + chordStep(i), triad[i % 3]));
+      const fingersFor3 = k => {
+        const steps = [0, 1, 2].map(j => chordStep(k + j));
+        const lower = steps[1] - steps[0];
+        const upper = steps[2] - steps[1];
+        // 3 staff steps is a fourth.
+        return staff.hand === 'right' ? [1, upper === 3 ? 2 : 3, 5] : [5, lower === 3 ? 2 : 3, 1];
+      };
+      const notes = [];
+      const fingers = [];
+      for (let k = 0; k < groups; k++) {
+        notes.push(chord[k], chord[k + 1], chord[k + 2]);
+        fingers.push(...fingersFor3(k));
+      }
+      for (let k = groups - 1; k >= 0; k--) {
+        notes.push(chord[k + 2], chord[k + 1], chord[k]);
+        fingers.push(...fingersFor3(k).reverse());
+      }
+      const crossed = crossings(notes, fingers, staff.hand);
+      const accidentals = writtenAccidentals(notes, signature, bars);
+      const clefs = clefsFor(notes, staff.clef, top, undefined, BROKEN_METER.group);
+      return {
+        ...staff,
+        notes: notes.map((note, i) => ({
+          ...note, clef: clefs[i], duration: '8', finger: fingers[i], crossing: crossed[i], accidental: accidentals[i],
+        })),
+      };
+    });
+
+    const title = type.family === 'minor'
+      ? `${nameOf(root)} Minor Broken Chords`
+      : `${titleOf(root, type)} Broken Chords`;
+    return {
+      pattern: 'broken', root, choice, type, title, chord: chordName(triad), triad, octaves, motion: 'broken', shift,
+      meter: BROKEN_METER, top, bars, up, down, signature, staves,
+      tables: [{ caption: 'Ascending', from: 0, to: top }, { caption: 'Descending', from: top + 1, to: count - 1 }],
     };
   }
 

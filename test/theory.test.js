@@ -202,7 +202,7 @@ test('every scale is playable: thumbs on white keys, crossings through the thumb
     const minor = MINOR_FORMS.includes(kind);
     const choice = { family: minor ? 'minor' : 'major', mode: kind, form: kind };
     for (const root of T.rootsFor(choice)) {
-      for (const [octaves, motion] of T.MOTIONS.filter(m => m.id !== 'arpeggios').flatMap(m => [[1, m.id], [2, m.id]])) {
+      for (const [octaves, motion] of T.MOTIONS.filter(m => !['arpeggios', 'broken'].includes(m.id)).flatMap(m => [[1, m.id], [2, m.id]])) {
         const s = T.buildScale({ ...choice, root, octaves, motion });
         for (const { hand, notes } of s.staves) {
           const where = `${s.title}, ${octaves} octave(s) ${motion}, ${hand} hand`;
@@ -411,6 +411,34 @@ test('arpeggios: root position and both inversions on one line, with standard fi
         });
       }
     }
+  }
+});
+
+test('broken chords follow the reference engraving: 6/8, groups of three, standard fingering', () => {
+  const broken = (id, family = 'major', octaves = 1) => T.buildScale({
+    root: T.parseId(id), family, mode: 'ionian', form: 'natural', octaves, motion: 'broken',
+  });
+  const run = (s, hand) => staff(s, hand).notes.map(n => `${n.name}${n.octave}:${n.finger}`).join(' ');
+  const c = broken('C');
+  assert.equal(run(c, 'right'),
+    'C4:1 E4:3 G4:5 E4:1 G4:2 C5:5 G4:1 C5:3 E5:5 C5:1 E5:3 G5:5 ' +
+    'G5:5 E5:3 C5:1 E5:5 C5:3 G4:1 C5:5 G4:2 E4:1 G4:5 E4:3 C4:1');
+  assert.equal(run(c, 'left'),
+    'C3:5 E3:3 G3:1 E3:5 G3:3 C4:1 G3:5 C4:2 E4:1 C4:5 E4:3 G4:1 ' +
+    'G4:1 E4:3 C4:5 E4:1 C4:2 G3:5 C4:1 G3:3 E3:5 G3:1 E3:3 C3:5');
+  assert.equal(c.title, 'C Major Broken Chords');
+  assert.deepEqual(c.meter, { time: '6/8', beats: 6, value: 8, group: 3 });
+  assert.deepEqual(c.bars, [[0, 5], [6, 11], [12, 17], [18, 23]]);
+  assert.ok(staff(c, 'right').notes.every(n => n.duration === '8'));
+  // Two octaves climb three more groups each way: seven full bars.
+  const two = broken('C', 'major', 2);
+  assert.equal(staff(two, 'right').notes.length, 42);
+  assert.equal(two.bars.length, 7);
+  // Minor and other keys keep the shape; the hands stay an octave apart.
+  for (const [id, family] of [['A', 'minor'], ['Eb', 'major'], ['Fs', 'minor']]) {
+    const s = broken(id, family);
+    staff(s, 'right').notes.forEach((note, i) => assert.equal(note.midi - staff(s, 'left').notes[i].midi, 12));
+    assert.deepEqual(staff(s, 'right').notes.slice(0, 3).map(n => n.finger), [1, 3, 5]);
   }
 });
 

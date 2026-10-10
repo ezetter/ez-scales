@@ -171,6 +171,8 @@
     };
     if (scale.pattern === 'arpeggio') {
       $('scale-sub').textContent = `Root position, 1st and 2nd inversions, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} each, ascending and descending`;
+    } else if (scale.pattern === 'broken') {
+      $('scale-sub').textContent = `Broken chords in 6/8, ${scale.octaves === 1 ? 'one octave' : 'two octaves'}, ascending and descending`;
     } else {
       $('scale-sub').textContent = scale.motion === 'contrary'
         ? `${span} in contrary motion, hands starting together on the tonic`
@@ -180,7 +182,7 @@
     if (moved) $('scale-sub').textContent += `, ${moved} than usual`;
     const parent = `${nameHTML(scale.signature.major)} major`;
     const facts = [['Key signature', signatureHTML(scale.signature)]];
-    if (scale.pattern === 'arpeggio') {
+    if (scale.pattern === 'arpeggio' || scale.pattern === 'broken') {
       facts.push(['Chord', `${nameHTML(scale.triad[0])}${escapeHTML(scale.chord.slice(T.nameOf(scale.triad[0]).length))}`]);
       facts.push(['Notes', namesHTML(scale.triad)]);
       $('facts').innerHTML = facts.map(([term, value]) => `<div><dt>${term}</dt><dd>${value}</dd></div>`).join('');
@@ -225,19 +227,20 @@
     return node;
   }
 
-  // Beaming: eighth notes go in groups of four, half a bar each (fewer before the last bar's held
-  // note or a clef change, which starts a new group), and a longer note stands alone. Each group's stems point one way, chosen as VexFlow
-  // would: down when its notes sit on or above the middle line on average, else up.
+  // Beaming: eighth notes go in groups of `size` (four in 4/4, half a bar; three in 6/8), fewer
+  // before the last bar's held note or a clef change, which starts a new group, and a longer note
+  // stands alone. Each group's stems point one way, chosen as VexFlow would: down when its notes
+  // sit on or above the middle line on average, else up.
   const MIDDLE_STEP = { treble: 34, bass: 22 };
   const TOP_STEP = { treble: 38, bass: 26 };
 
-  function stemGroups(part, bars) {
+  function stemGroups(part, bars, size) {
     const groups = [];
     for (const [from, to] of bars) {
       let group = null;
       for (let i = from; i <= to; i++) {
         const eighth = part.notes[i].duration === '8';
-        if (!group || !eighth || !group.beamed || (i - from) % 4 === 0 || clefChanges(part, i)) {
+        if (!group || !eighth || !group.beamed || (i - from) % size === 0 || clefChanges(part, i)) {
           group = { notes: [], beamed: eighth };
           groups.push(group);
         }
@@ -295,6 +298,10 @@
       thirds: 'up and down with the hands a third apart',
       sixths: 'up and down with the hands a sixth apart',
     }[scale.motion] || 'up and down';
+    if (scale.pattern === 'broken') {
+      return `Grand staff: ${name}, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} up and down in groups of three, ` +
+        `with ${signature} in the key signature, in 6/8 time as eighth notes. The tables below list each note's finger.`;
+    }
     if (scale.pattern === 'arpeggio') {
       return `Grand staff: ${name} in root position, 1st and 2nd inversion, ${scale.octaves === 1 ? 'one octave' : 'two octaves'} ` +
         `each up and down, with ${signature} in the key signature, in 4/4 time as eighth notes. The tables below list each note's finger.`;
@@ -323,6 +330,8 @@
     const colors = tokens();
     const width = renderedWidth;
     const { bars } = scale;
+    // 4/4 with eighths beamed in fours unless the pattern says otherwise (broken chords: 6/8 in threes).
+    const meter = scale.meter || { time: '4/4', beats: 4, value: 4, group: 4 };
     const notesOf = ([from, to]) => scale.staves[0].notes.slice(from, to + 1);
     const room = bars.map(([from, to]) => {
       let total = notesOf([from, to]).reduce((sum, note) => sum + ROOM[note.duration], 0);
@@ -336,7 +345,7 @@
     // Clefs, key and time signatures, then the same room per eighth: as much as fits, within limits.
     const brace = 16;
     const header = Math.max(...scale.staves.map(part => new VF.Stave(0, 0, 400)
-      .addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4').getNoteStartX()));
+      .addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature(meter.time).getNoteStartX()));
     const lead = new VF.Stave(0, 0, 400).getNoteStartX();
     const tail = 14;
     const spare = width - brace - 2 - header - bars.length * tail - (bars.length - 1) * lead;
@@ -344,7 +353,7 @@
     const widths = room.map((r, bar) => (bar === 0 ? header : lead) + r * spacing + tail);
     const lineWidth = brace + widths.reduce((a, b) => a + b, 0) + 2;
     const left = brace + Math.max(0, Math.floor((width - lineWidth) / 2));
-    const plans = scale.staves.map(part => stemGroups(part, bars));
+    const plans = scale.staves.map(part => stemGroups(part, bars, meter.group));
     const layout = verticalLayout(scale, plans);
 
     // VexFlow pins an inline size on its host, so it draws into a child and #score stays fluid.
@@ -386,7 +395,7 @@
         stave.setDefaultLedgerLineStyle({ strokeStyle: colors.staff, lineWidth: 1.3 });
         if (bar === 0) {
           // Each staff opens in its first note's clef: the right hand may start in bass clef.
-          stave.addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature('4/4');
+          stave.addClef(part.notes[0].clef).addKeySignature(scale.signature.vexKey).addTimeSignature(meter.time);
           // Start both staves' notes at the same x whatever their clefs' widths.
           stave.setNoteStartX(x + header);
         } else {
@@ -420,7 +429,7 @@
           }
           tickables.push(built[i]);
         }
-        return new VF.Voice({ num_beats: 4, beat_value: 4 }).addTickables(tickables).setStave(staves[p]);
+        return new VF.Voice({ num_beats: meter.beats, beat_value: meter.value }).addTickables(tickables).setStave(staves[p]);
       });
       // Formatting both staves together lines up each note of the right hand over the left's.
       const formatter = new VF.Formatter();
@@ -480,6 +489,10 @@
   }
 
   function renderGlance(scale) {
+    if (scale.tables) {
+      $('glance').innerHTML = scale.tables.map(t => glanceTable(t.caption, scale, t.from, t.to)).join('');
+      return;
+    }
     if (scale.pattern === 'arpeggio') {
       // One table per inversion, going up; coming down each note keeps its finger.
       const tables = scale.segments.map(g => glanceTable(`${g.name}, ascending`, scale, g.from, g.top)).join('');
